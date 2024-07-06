@@ -1,9 +1,13 @@
 import express, { NextFunction, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database/database';
+import authRouter from './router/auth/auth.route';
+import { CustomError } from './utils/CustomError';
+
 
 const app = express();
-dotenv.config()
+dotenv.config();
+app.use(express.json());
 
 // Port
 const port =  3000;
@@ -12,8 +16,8 @@ const port =  3000;
 connectDB()
 
 //Router 
-app.get('/api/v1/users');
+app.use('/api/v1/auth/', authRouter);
 
 app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+    console.log(`Server running on port:${port}`);
 })
