@@ -4,7 +4,7 @@ export interface IUserInfo extends Document{
     displayName: string;
     email: string;
     password: string;
-    phone: string;
+    phoneNumber: string;
 }
 
 const userSchema = new mongoose.Schema<IUserInfo>({
@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema<IUserInfo>({
         type: String,
         required: true
     },
-    phone: {
+    phoneNumber: {
         type: String,
         required: false
     }
