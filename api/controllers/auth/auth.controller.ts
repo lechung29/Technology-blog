@@ -1,5 +1,5 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
-import Users, { IUserInfo } from "../../models/users/user.model";
+import Users, { IUserInfo, userRole } from "../../models/users/user.model";
 import bcryptjs from "bcryptjs";
 import { errorHandler } from "../../utils/ErrorHandle";
 import jwt from "jsonwebtoken";
@@ -90,6 +90,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
         displayName,
         email,
         password: req.body.password,
+        role: userRole.user
     });
 
     try {

@@ -1,8 +1,42 @@
-import { NextFunction, RequestHandler, Response } from "express";
+import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import { errorHandler } from "../../utils/ErrorHandle";
 import bcryptjs from "bcryptjs";
 import Users from "../../models/users/user.model";
+
+export const getAllUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const allUsers = await Users.find({});
+        return res.status(200).send({
+            success: true,
+            message: "Get all users successfully",
+            data: allUsers,
+        });
+    } catch (error: any) {
+        next(error);
+        return res.status(500).send({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+export const getUserById: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const user = await Users.findById(req.params.userId);
+        return res.status(200).send({
+            success: true,
+            message: "Get user by id successfully",
+            user: user,
+        });
+    } catch (error: any) {
+        next(error);
+        return res.status(500).send({
+            success: false,
+            message: error.message,
+        });
+    }
+};
 
 export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
@@ -87,6 +121,55 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
         return res.status(500).send({
             success: false,
             message: "Failed to update user",
+        });
+    }
+};
+
+export const deleteSingleUser: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.params;
+    try {
+        await Users.findByIdAndDelete(userId);
+        return res.status(200).send({
+            success: true,
+            message: "Deleted user successfully",
+        });
+    } catch (error: any) {
+        next(error);
+        return res.status(500).send({
+            success: false,
+            message: "Failed to delete user",
+        });
+    }
+};
+
+export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const userIds: string[] = req.body.userIds;
+    try {
+        await Users.deleteMany({ _id: { $in: userIds } });
+        return res.status(200).send({
+            success: true,
+            message: `Deleted ${userIds.length} users successfully`,
+        });
+    } catch (error: any) {
+        next(error);
+        return res.status(500).send({
+            success: false,
+            message: `Failed to delete ${userIds.length} users`,
+        });
+    }
+};
+
+export const userLogout: RequestHandler = (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        return res.clearCookie("access_token").status(200).json({ 
+            success: true,
+            message: "Sign out successfully"
+        });
+    } catch (error: any) {
+        next(error);
+        return res.status(500).send({
+            success: false,
+            message: error.message,
         });
     }
 };

@@ -8,15 +8,23 @@ export interface AuthenticatedRequest extends Request {
     user?: IUserInfo;
 }
 
-export const verifyToken = async (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+export const verifyToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const token = req.cookies.access_token;
     if (!token) {
-        return next(errorHandler(401, "Unauthorized"));
+        next(errorHandler(401, "Unauthorized"));
+        return res.status(401).send({
+            success: false,
+            message: "Please login to access"
+        })
     }
 
     jwt.verify(token, process.env.JWT_SECRET!, (err: any, user: any) => {
         if (err) {
-            return next(errorHandler(401, "Unauthorized"));
+            next(errorHandler(401, "Unauthorized"));
+            return res.status(401).send({
+                success: false,
+                message: "Please login to access"
+            })
         }
         req.user = user;
         next();
