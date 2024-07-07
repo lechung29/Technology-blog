@@ -90,7 +90,6 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
         displayName,
         email,
         password: req.body.password,
-        role: userRole.user
     });
 
     try {
