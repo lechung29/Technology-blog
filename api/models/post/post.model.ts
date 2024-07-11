@@ -13,8 +13,6 @@ export interface IPost extends Document {
     thumbnail: string;
     content: string;
     author: string;
-    likes: mongoose.Types.ObjectId[];
-    comments: mongoose.Types.ObjectId[];
     status: PostState;
 }
 
@@ -46,18 +44,6 @@ const postSchema = new mongoose.Schema<IPost>(
             type: String,
             required: true,
         },
-        likes: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "Users",
-            },
-        ],
-        comments: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "Comment",
-            },
-        ],
         status: {
             type: String,
             required: true,

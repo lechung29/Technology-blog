@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { MongoClient, ServerApiVersion } from "mongodb"
 
 const formatURL = () => {
     let database_url = process.env.DATABASE_URL as string;

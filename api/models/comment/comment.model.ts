@@ -4,31 +4,36 @@ export interface IComment extends Document {
     content: string;
     postId: mongoose.Types.ObjectId;
     userId: mongoose.Types.ObjectId;
-    date: Date;
+    like: Array<string>;
 }
 
-const commentSchema = new mongoose.Schema<IComment>({
-    content: { 
-        type: String, 
-        required: true 
+const commentSchema = new mongoose.Schema<IComment>(
+    {
+        content: {
+            type: String,
+            required: true,
+        },
+        postId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Posts",
+            required: true,
+        },
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Users",
+            required: true,
+        },
+        like: {
+            type: [
+                {
+                    type: String,
+                },
+            ],
+            default: [],
+        },
     },
-    postId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: "Posts", 
-        required: true 
-    },
-    userId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: "Users", 
-        required: true 
-    },
-    date: { 
-        type: Date, 
-        required: true, 
-        default: Date.now 
-    },
-}, {timestamps: true});
-
+    { timestamps: true }
+);
 
 const Comments = mongoose.model<IComment>("Comments", commentSchema);
 
