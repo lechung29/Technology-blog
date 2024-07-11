@@ -3,7 +3,7 @@ import mongoose, { Document } from "mongoose";
 export enum PostState {
     PENDING = "Pending",
     PUBLISHED = "Published",
-    DELETED = "Deleted",
+    REJECTED = "Rejected",
 }
 
 export interface IPost extends Document {

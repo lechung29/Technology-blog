@@ -162,7 +162,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserI
         }
     }
 
-    const validUser = await Users.findOne({ email });
+    const validUser = await Users.findOne({ email }).lean();
     if (!validUser) {
         return res.status(404).send({
             success: false,
@@ -184,7 +184,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserI
 
     try {
         const token = jwt.sign({ id: validUser?._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-        const { password: pass, ...rest } = validUser.toObject();
+        const { password: pass, ...rest } = validUser;
         return res.status(200).cookie("access_token", token, { httpOnly: true }).send({
             success: true,
             message: "Sign in successfully",

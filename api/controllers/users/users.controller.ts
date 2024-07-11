@@ -1,16 +1,33 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
-import { errorHandler } from "../../utils/ErrorHandle";
 import bcryptjs from "bcryptjs";
 import Users from "../../models/users/user.model";
 
+export enum ISortDirection {
+    ASC = 1,
+    DESC = -1,
+}
+
 export const getAllUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const allUsers = await Users.find({});
+        const startIndex = parseInt(req.query.startIndex as string) || 0;
+        const limit = parseInt(req.query.limit as string) || 9;
+        const sortInfo = req.query.order === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+        const supportsSort = req.body.supportsSort;
+
+        const sortObject: { [key: string]: ISortDirection } = {};
+        if (supportsSort) {
+            sortObject[supportsSort] = sortInfo;
+        }
+
+        const allUsers = await Users.find().sort(sortObject).skip(startIndex).limit(limit).lean();
         return res.status(200).send({
             success: true,
             message: "Get all users successfully",
-            data: allUsers,
+            data: allUsers.map((user) => {
+                const { password, ...rest } = user;
+                return rest;
+            }),
         });
     } catch (error: any) {
         next(error);
@@ -21,13 +38,37 @@ export const getAllUsers: RequestHandler = async (req: Request, res: Response, n
     }
 };
 
+export const getTotalUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const totalUsers = await Users.countDocuments({});
+        return res.status(200).send({
+            success: true,
+            message: "Get total users successfully",
+            total: totalUsers,
+        });
+    } catch (error: any) {
+        next(error);
+        return res.status(500).send({
+            success: false,
+            message: error.message,
+        });
+    }
+}
+
 export const getUserById: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = await Users.findById(req.params.userId);
+        const user = await Users.findById(req.params.userId).lean();
+        if (!user) {
+            return res.status(404).send({
+                success: false,
+                message: "User not found",
+            });
+        }
+        const { password, ...rest } = user;
         return res.status(200).send({
             success: true,
             message: "Get user by id successfully",
-            user: user,
+            user: rest,
         });
     } catch (error: any) {
         next(error);
@@ -103,14 +144,14 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
                 },
             },
             { new: true }
-        );
+        ).lean();
         if (!updatedUser) {
             return res.status(400).send({
                 success: false,
                 message: "User not found",
             });
         }
-        const { password, ...rest } = updatedUser.toObject();
+        const { password, ...rest } = updatedUser;
         res.status(200).send({
             success: true,
             message: "User updated successfully",
@@ -129,9 +170,14 @@ export const deleteSingleUser: RequestHandler = async (req: Request, res: Respon
     const { userId } = req.params;
     try {
         await Users.findByIdAndDelete(userId);
+        const remainingUsers = await Users.find({}).lean();
         return res.status(200).send({
             success: true,
             message: "Deleted user successfully",
+            users: remainingUsers.map((user) => {
+                const { password, ...rest } = user;
+                return rest;
+            }),
         });
     } catch (error: any) {
         next(error);
@@ -146,9 +192,14 @@ export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Res
     const userIds: string[] = req.body.userIds;
     try {
         await Users.deleteMany({ _id: { $in: userIds } });
+        const remainingUsers = await Users.find({}).lean();
         return res.status(200).send({
             success: true,
             message: `Deleted ${userIds.length} users successfully`,
+            users: remainingUsers.map((user) => {
+                const { password, ...rest } = user;
+                return rest;
+            }),
         });
     } catch (error: any) {
         next(error);
@@ -161,9 +212,9 @@ export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Res
 
 export const userLogout: RequestHandler = (_req: Request, res: Response, next: NextFunction) => {
     try {
-        return res.clearCookie("access_token").status(200).json({ 
+        return res.clearCookie("access_token").status(200).json({
             success: true,
-            message: "Sign out successfully"
+            message: "Sign out successfully",
         });
     } catch (error: any) {
         next(error);
