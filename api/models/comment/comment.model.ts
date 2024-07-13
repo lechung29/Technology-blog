@@ -6,6 +6,7 @@ export interface IComment extends Document {
     content: string;
     post: mongoose.Types.ObjectId | IPost;
     commentator: mongoose.Types.ObjectId | IUserInfo;
+    like: Array<mongoose.Types.ObjectId | IUserInfo>;
 }
 
 const commentSchema = new mongoose.Schema<IComment>(
@@ -24,6 +25,7 @@ const commentSchema = new mongoose.Schema<IComment>(
             ref: "Users",
             required: true,
         },
+        like: [{ type: mongoose.Schema.Types.ObjectId, ref: "Users" }],
     },
     { timestamps: true }
 );

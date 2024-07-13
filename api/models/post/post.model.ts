@@ -8,6 +8,10 @@ export enum PostState {
     REJECTED = "Rejected",
 }
 
+export enum PostType {
+    
+}
+
 export interface IPost extends Document {
     title: string;
     slug: string;
