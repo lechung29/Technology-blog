@@ -1,5 +1,5 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
-import Users, { IUserInfo, userRole } from "../../models/users/user.model";
+import Users, { IUserData, IUserInfo, userRole } from "../../models/users/user.model";
 import bcryptjs from "bcryptjs";
 import { errorHandler } from "../../utils/ErrorHandle";
 import jwt from "jsonwebtoken";
@@ -10,7 +10,7 @@ enum IRegisterStatus {
     Error,
 }
 
-export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<IUserInfo, "email" | "displayName" | "password">>, res: Response, next: NextFunction) => {
+export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<IUserData, "email" | "displayName" | "password">>, res: Response, next: NextFunction) => {
     const { displayName, email, password } = req.body;
 
     if (!email) {
@@ -122,7 +122,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
     }
 };
 
-export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserInfo, "email" | "password">>, res: Response, next: NextFunction) => {
+export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserData, "email" | "password">>, res: Response, next: NextFunction) => {
     const { email, password } = req.body;
 
     if (!email) {

@@ -1,4 +1,6 @@
 import mongoose, { Document } from "mongoose";
+import { IUserInfo } from "../users/user.model";
+import { IComment } from "../comment/comment.model";
 
 export enum PostState {
     PENDING = "Pending",
@@ -12,7 +14,8 @@ export interface IPost extends Document {
     category: string;
     thumbnail: string;
     content: string;
-    author: string;
+    author: mongoose.Types.ObjectId | IUserInfo;
+    comments: (mongoose.Types.ObjectId | IComment)[];
     status: PostState;
 }
 
@@ -40,10 +43,17 @@ const postSchema = new mongoose.Schema<IPost>(
             type: String,
             required: true,
         },
-        author: {
-            type: String,
-            required: true,
+        author: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: "Users", 
+            required: true 
         },
+        comments: [
+            { 
+                type: mongoose.Schema.Types.ObjectId, 
+                ref: 'Comment' 
+            }
+        ],
         status: {
             type: String,
             required: true,

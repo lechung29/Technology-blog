@@ -2,6 +2,7 @@ import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import bcryptjs from "bcryptjs";
 import Users from "../../models/users/user.model";
+import Posts from "../../models/post/post.model";
 
 export enum ISortDirection {
     ASC = 1,
@@ -10,30 +11,46 @@ export enum ISortDirection {
 
 export const getAllUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const startIndex = parseInt(req.query.startIndex as string) || 0;
-        const limit = parseInt(req.query.limit as string) || 9;
-        const sortInfo = req.query.order === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
-        const supportsSort = req.body.supportsSort;
+        const page = parseInt(req.body.page as string) || 1;
+        const limit = parseInt(req.body.limit as string) || 9;
 
-        const sortObject: { [key: string]: ISortDirection } = {};
-        if (supportsSort) {
-            sortObject[supportsSort] = sortInfo;
+        const sortType = req.body?.sortInfo?.sortType === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+        const sortField: string = req.body?.sortInfo?.sortField || "createdAt";
+
+        const sortObject: Record<string, ISortDirection> = {};
+        if (sortField) {
+            sortObject[sortField] = sortType;
         }
 
-        const allUsers = await Users.find().sort(sortObject).skip(startIndex).limit(limit).lean();
+        const filterField = req.body?.filterInfo?.filterField;
+        const filterValue = req.body?.filterInfo?.filterValue;
+        const filterObject: Record<string, string | Object> = {};
+        if (filterField && filterValue) {
+            filterObject[filterField] = filterValue;
+        }
+
+        const searchText = req.body?.searchText;
+        if (searchText) {
+            filterObject["displayName"] = { $regex: searchText, $options: "i" };
+        }
+
+        const allUsers = await Users.find(filterObject)
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .sort(sortObject)
+            .select("-password")
+            .lean()
+            .exec()
         return res.status(200).send({
             success: true,
             message: "Get all users successfully",
-            data: allUsers.map((user) => {
-                const { password, ...rest } = user;
-                return rest;
-            }),
+            data: allUsers,
         });
     } catch (error: any) {
         next(error);
         return res.status(500).send({
             success: false,
-            message: error.message,
+            message: "Failed to get all users",
         });
     }
 };
@@ -50,31 +67,32 @@ export const getTotalUsers: RequestHandler = async (req: Request, res: Response,
         next(error);
         return res.status(500).send({
             success: false,
-            message: error.message,
+            message: "Failed to get quantity of all users",
         });
     }
-}
+};
 
 export const getUserById: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = await Users.findById(req.params.userId).lean();
+        const user = await Users.findById(req.params.userId).select("-password").lean().exec();
         if (!user) {
             return res.status(404).send({
                 success: false,
                 message: "User not found",
             });
         }
-        const { password, ...rest } = user;
         return res.status(200).send({
             success: true,
             message: "Get user by id successfully",
-            user: rest,
+            user: {
+                ...user
+            },
         });
     } catch (error: any) {
         next(error);
         return res.status(500).send({
             success: false,
-            message: error.message,
+            message: "Failed to get user information",
         });
     }
 };
@@ -144,7 +162,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
                 },
             },
             { new: true }
-        ).lean();
+        ).lean().exec();
         if (!updatedUser) {
             return res.status(400).send({
                 success: false,
@@ -169,15 +187,13 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
 export const deleteSingleUser: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req.params;
     try {
-        await Users.findByIdAndDelete(userId);
-        const remainingUsers = await Users.find({}).lean();
+        await Users.findByIdAndDelete(userId).exec();
+        await Posts.deleteMany({ author: userId})
+        const remainingUsers = await Users.find({}).select("-password").lean();
         return res.status(200).send({
             success: true,
             message: "Deleted user successfully",
-            users: remainingUsers.map((user) => {
-                const { password, ...rest } = user;
-                return rest;
-            }),
+            users: remainingUsers,
         });
     } catch (error: any) {
         next(error);
@@ -191,15 +207,12 @@ export const deleteSingleUser: RequestHandler = async (req: Request, res: Respon
 export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const userIds: string[] = req.body.userIds;
     try {
-        await Users.deleteMany({ _id: { $in: userIds } });
-        const remainingUsers = await Users.find({}).lean();
+        await Users.deleteMany({ _id: { $in: userIds } }).exec();
+        const remainingUsers = await Users.find({}).select("-password").lean();
         return res.status(200).send({
             success: true,
             message: `Deleted ${userIds.length} users successfully`,
-            users: remainingUsers.map((user) => {
-                const { password, ...rest } = user;
-                return rest;
-            }),
+            users: remainingUsers,
         });
     } catch (error: any) {
         next(error);
@@ -220,7 +233,7 @@ export const userLogout: RequestHandler = (_req: Request, res: Response, next: N
         next(error);
         return res.status(500).send({
             success: false,
-            message: error.message,
+            message: "Failed to log out",
         });
     }
 };

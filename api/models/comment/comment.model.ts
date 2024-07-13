@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+import { IUserInfo } from "../users/user.model";
+import { IPost } from "../post/post.model";
 
 export interface IComment extends Document {
     content: string;
-    postId: mongoose.Types.ObjectId;
-    userId: mongoose.Types.ObjectId;
-    like: Array<string>;
+    post: mongoose.Types.ObjectId | IPost;
+    commentator: mongoose.Types.ObjectId | IUserInfo;
 }
 
 const commentSchema = new mongoose.Schema<IComment>(
@@ -13,23 +14,15 @@ const commentSchema = new mongoose.Schema<IComment>(
             type: String,
             required: true,
         },
-        postId: {
+        post: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Posts",
             required: true,
         },
-        userId: {
+        commentator: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Users",
             required: true,
-        },
-        like: {
-            type: [
-                {
-                    type: String,
-                },
-            ],
-            default: [],
         },
     },
     { timestamps: true }
