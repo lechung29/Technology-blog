@@ -14,19 +14,16 @@ export const getAllUsers: RequestHandler = async (req: Request, res: Response, n
         const page = parseInt(req.body.page as string) || 1;
         const limit = parseInt(req.body.limit as string) || 9;
 
-        const sortType = req.body?.sortInfo?.sortType === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
-        const sortField: string = req.body?.sortInfo?.sortField || "createdAt";
-
+        const sortInfo = (req.query?.sortInfo as string).split("%20")
         const sortObject: Record<string, ISortDirection> = {};
-        if (sortField) {
-            sortObject[sortField] = sortType;
+        for(let i = 0; i < sortInfo.length; i = i + 2) {
+            sortObject[sortInfo[i]] = sortInfo[i+1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
         }
 
-        const filterField = req.body?.filterInfo?.filterField;
-        const filterValue = req.body?.filterInfo?.filterValue;
+        const filterInfo = (req.query?.filterInfo as string).split("%20")
         const filterObject: Record<string, string | Object> = {};
-        if (filterField && filterValue) {
-            filterObject[filterField] = filterValue;
+        for(let i = 0; i < filterInfo.length; i = i + 2) {
+            filterObject[filterInfo[i]] = filterInfo[i+1]
         }
 
         const searchText = req.body?.searchText;
