@@ -10,34 +10,37 @@ export enum ISortDirection {
 }
 
 export const getAllUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const page = parseInt(req.body.page as string) || 1;
+    const limit = parseInt(req.body.limit as string) || 9;
+
+    const sortObject: Record<string, ISortDirection> = {};
+    if (!!req.params.sort) {
+        const sortInfo = (req.query.sort as string).split(" ");
+        for (let i = 0; i < sortInfo.length; i = i + 2) {
+            sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+        }
+    }
+
+    const filterObject: Record<string, string | null | Object> = {};
+    if (!!req.query.filter) {
+        const filterInfo = (req.query.filter as string).split(" ");
+        for (let i = 0; i < filterInfo.length; i = i + 2) {
+            filterObject[filterInfo[i]] = filterInfo[i + 1];
+        }
+    }
+
+    const searchText = req.body.search;
+    if (searchText) {
+        filterObject["displayName"] = { $regex: searchText, $options: "i" };
+    }
     try {
-        const page = parseInt(req.body.page as string) || 1;
-        const limit = parseInt(req.body.limit as string) || 9;
-
-        const sortInfo = (req.query?.sortInfo as string).split("%20")
-        const sortObject: Record<string, ISortDirection> = {};
-        for(let i = 0; i < sortInfo.length; i = i + 2) {
-            sortObject[sortInfo[i]] = sortInfo[i+1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
-        }
-
-        const filterInfo = (req.query?.filterInfo as string).split("%20")
-        const filterObject: Record<string, string | Object> = {};
-        for(let i = 0; i < filterInfo.length; i = i + 2) {
-            filterObject[filterInfo[i]] = filterInfo[i+1]
-        }
-
-        const searchText = req.body?.searchText;
-        if (searchText) {
-            filterObject["displayName"] = { $regex: searchText, $options: "i" };
-        }
-
         const allUsers = await Users.find(filterObject)
             .skip((page - 1) * limit)
             .limit(limit)
             .sort(sortObject)
             .select("-password")
             .lean()
-            .exec()
+            .exec();
         return res.status(200).send({
             success: true,
             message: "Get all users successfully",
@@ -82,7 +85,7 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
             success: true,
             message: "Get user by id successfully",
             user: {
-                ...user
+                ...user,
             },
         });
     } catch (error: any) {
@@ -159,7 +162,9 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
                 },
             },
             { new: true }
-        ).lean().exec();
+        )
+            .lean()
+            .exec();
         if (!updatedUser) {
             return res.status(400).send({
                 success: false,
@@ -185,7 +190,7 @@ export const deleteSingleUser: RequestHandler = async (req: Request, res: Respon
     const { userId } = req.params;
     try {
         await Users.findByIdAndDelete(userId).exec();
-        await Posts.deleteMany({ author: userId})
+        await Posts.deleteMany({ author: userId });
         const remainingUsers = await Users.find({}).select("-password").lean();
         return res.status(200).send({
             success: true,

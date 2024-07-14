@@ -50,27 +50,41 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
 };
 
 export const getAllPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 9;
+
+    const sortObject: Record<string, ISortDirection> = {};
+    if (!!req.params.sort) {
+        const sortInfo = (req.query.sort as string).split(" ");
+        for (let i = 0; i < sortInfo.length; i = i + 2) {
+            sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+        }
+    }
+
+    const filterObject: Record<string, string | null | Object> = {};
+    if (!!req.query.filter) {
+        const filterInfo = (req.query.filter as string).split(" ");
+        for (let i = 0; i < filterInfo.length; i = i + 2) {
+            if (filterInfo[i] === "author") {
+                const authorName = filterInfo[i + 1];
+                const author = await Users.findOne({ displayName: authorName }).lean();
+                if (!!author) {
+                    filterObject['author'] = author._id;
+                } else {
+                    filterObject['author'] = null;
+                }
+            } else {
+                filterObject[filterInfo[i]] = filterInfo[i + 1];
+            }
+        }
+    }
+
+    const searchText = req.query.search;
+    if (searchText) {
+        filterObject["title"] = { $regex: searchText, $options: "i" };
+    }
+
     try {
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 9;
-
-        const sortInfo = (req.query?.sortInfo as string).split("%20")
-        const sortObject: Record<string, ISortDirection> = {};
-        for(let i = 0; i < sortInfo.length; i = i + 2) {
-            sortObject[sortInfo[i]] = sortInfo[i+1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
-        }
-
-        const filterInfo = (req.query?.filterInfo as string).split("%20")
-        const filterObject: Record<string, string | Object> = {};
-        for(let i = 0; i < filterInfo.length; i = i + 2) {
-            filterObject[filterInfo[i]] = filterInfo[i+1]
-        }
-
-        const searchText = req.body?.searchText;
-        if (searchText) {
-            filterObject["title"] = { $regex: searchText, $options: "i" };
-        }
-
         const posts = await Posts.find(filterObject)
             .skip((page - 1) * limit)
             .limit(limit)
@@ -87,7 +101,7 @@ export const getAllPosts: RequestHandler = async (req: Request, res: Response, n
         return res.status(200).send({
             success: true,
             message: "Get all posts successfully",
-            allPosts: posts
+            allPosts: posts,
             // totalPosts: totalPost,
             // lastMonthPosts: lastMonthPosts,
         });
