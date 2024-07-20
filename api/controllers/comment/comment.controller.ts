@@ -1,15 +1,16 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import Comments from "../../models/comment/comment.model";
+import { IRequestStatus } from "../auth/auth.controller";
 
 export const createNewComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { content, post, commentator } = req.body;
 
     // For api requests
     if (commentator !== req.user?.id) {
-        return res.status(403).send({
-            success: false,
-            message: "You are not allowed to comment on this post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Bạn không có quyền bình luận bài viết này",
         });
     }
 
@@ -23,14 +24,13 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
         await newComment.save();
 
         return res.status(201).send({
-            success: true,
-            message: "New comment created successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Bình luận thành công",
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to create new comment",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -42,15 +42,14 @@ export const getAllCommentsByPostId: RequestHandler = async (req: AuthenticatedR
     try {
         const allPostComments = await Comments.find({ post: postId }).populate({ path: "commentator", select: "displayName email" }).skip(skip).limit(limit).sort({ createAt: -1 }).lean();
         return res.status(200).send({
-            success: true,
-            message: "Comments fetched successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
             comments: allPostComments,
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to fetch comments",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -59,23 +58,22 @@ export const updateComment: RequestHandler = async (req: AuthenticatedRequest, r
     const { content, commentator } = req.body;
     const { commentId } = req.params;
     if (commentator !== req.user?.id) {
-        return res.status(403).send({
-            success: false,
-            message: "You are not allowed to update this comment",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Bạn không có quyền cập nhật bình luận này",
         });
     }
 
     try {
         await Comments.findByIdAndUpdate(commentId, { $set: { content: content } }, { new: true });
         return res.status(200).send({
-            success: true,
-            message: "Comment updated successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Đã cập nhật bình luận thành công",
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to update comment",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -84,23 +82,22 @@ export const deleteComment: RequestHandler = async (req: AuthenticatedRequest, r
     const { commentator } = req.body;
     const { commentId } = req.params;
     if (commentator !== req.user?.id) {
-        return res.status(403).send({
-            success: false,
-            message: "You are not allowed to delete this comment",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Bạn không có quyền xóa bình luận này",
         });
     }
 
     try {
         await Comments.findByIdAndDelete(commentId).exec();
         return res.status(200).send({
-            success: true,
-            message: "Comment deleted successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Đã xóa bình luận thành công",
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to delete comment",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -109,9 +106,9 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
     try {
         const comment = await Comments.findById(req.params.id);
         if (!comment) {
-            return res.status(404).send({
-                success: false,
-                message: "Comment not found",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Bình luận không tồn tại",
             });
         }
 
@@ -125,15 +122,14 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
 
         await comment.save();
         return res.status(200).send({
-            success: true,
-            message: "Like status updated successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Đã thích bình luận",
             totalLike: comment.like.length,
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to like comment",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };

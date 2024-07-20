@@ -4,20 +4,33 @@ import Posts from "../../models/post/post.model";
 import Users from "../../models/users/user.model";
 import { getSlug } from "../../utils/utils";
 import { ISortDirection } from "../users/users.controller";
+import { IRequestStatus } from "../auth/auth.controller";
 
 export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.body.title || !req.body.content || !req.body.category) {
-        return res.status(400).send({
-            success: false,
-            message: "Title, content and category are required",
+        const errorField: Array<string> = [];
+        if (!req.body.title) {
+            errorField.push("title");
+        }
+        if (!req.body.content) {
+            errorField.push("content");
+        }
+        if (!req.body.category) {
+            errorField.push("category");
+        }
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: errorField,
+            message: "Tiêu đề, danh mục và nội dùng là bắt buộc",
         });
     }
 
     const existingPost = await Posts.findOne({ title: req.body.title });
     if (!!existingPost) {
-        return res.status(400).send({
-            success: false,
-            message: "This title blog already exists",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "title",
+            message: "Tiêu đề đã tồn tại",
         });
     }
 
@@ -34,17 +47,16 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
             .populate({ path: "author", select: "displayName email" })
             .lean();
         return res.status(201).send({
-            success: true,
-            message: "Post created successfully. Please wait admin approval",
-            post: {
+            requestStatus: IRequestStatus.Success,
+            message: "Tạo bài viết thành công",
+            data: {
                 ...formattedPost,
             },
         });
     } catch (error: any) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Something went wrong. Please check your post settings",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -99,26 +111,25 @@ export const getAllPosts: RequestHandler = async (req: Request, res: Response, n
         // const lastMonthPosts = await Posts.countDocuments({ createdAt: { $gte: lastMonth } });
 
         return res.status(200).send({
-            success: true,
-            message: "Get all posts successfully",
-            allPosts: posts,
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
+            data: posts,
             // totalPosts: totalPost,
             // lastMonthPosts: lastMonthPosts,
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to get all posts",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
 
 export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
-        return res.status(403).send({
-            success: false,
-            message: "You are not allowed to delete this post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Bạn không có quyền xóa bài viết này",
         });
     }
     try {
@@ -129,17 +140,16 @@ export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, 
             .populate({ path: "author", select: "displayName email" })
             .lean();
         return res.status(200).send({
-            success: true,
-            message: "Deleted successfully",
-            postData: allPostsLast.map((post) => ({
+            requestStatus: IRequestStatus.Success,
+            message: "Xóa thành công",
+            data: allPostsLast.map((post) => ({
                 ...post,
             })),
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to delete post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -149,14 +159,13 @@ export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Resp
     try {
         await Posts.findByIdAndDelete(postId).exec();
         return res.status(200).send({
-            success: true,
-            message: "Deleted post successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Xóa thành công",
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to delete post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -166,23 +175,22 @@ export const adminMultipleDeletePosts: RequestHandler = async (req: Request, res
     try {
         await Posts.deleteMany({ _id: { $in: postIds } }).exec();
         return res.status(200).send({
-            success: true,
-            message: `Deleted ${postIds.length} posts successfully`,
+            requestStatus: IRequestStatus.Success,
+            message: `Xóa ${postIds.length} bài viết thành công`,
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to delete post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
 
 export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
-        return res.status(403).send({
-            success: false,
-            message: "You are not allowed to update this post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Bạn không có quyền cập nhật bài viết này",
         });
     }
 
@@ -204,17 +212,16 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
             .populate("author", "displayName email")
             .lean();
         return res.status(200).send({
-            success: true,
-            message: "Post updated successfully",
-            updatedPost: {
+            requestStatus: IRequestStatus.Success,
+            message: "Cập nhật bài viết thành công",
+            data: {
                 ...formattedPost,
             },
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to update post",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
@@ -224,23 +231,23 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
     const status = req.body.status;
 
     if (!status) {
-        return res.status(400).send({
-            success: false,
-            message: "Status is required",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Vui lòng lựa chọn trạng thái bài viết",
         });
     }
 
     try {
         await Posts.findByIdAndUpdate(postId, { $set: { status } }, { new: true });
         return res.status(200).send({
-            success: true,
-            message: "Post status updated successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Cập nhật trạng thái bài viết thành công",
         });
     } catch (error) {
         next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to update post status",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };

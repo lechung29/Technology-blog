@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import bcryptjs from "bcryptjs";
 import Users from "../../models/users/user.model";
 import Posts from "../../models/post/post.model";
+import { IRequestStatus } from "../auth/auth.controller";
 
 export enum ISortDirection {
     ASC = 1,
@@ -42,15 +43,14 @@ export const getAllUsers: RequestHandler = async (req: Request, res: Response, n
             .lean()
             .exec();
         return res.status(200).send({
-            success: true,
-            message: "Get all users successfully",
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
             data: allUsers,
         });
     } catch (error: any) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to get all users",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Thất bại",
         });
     }
 };
@@ -59,15 +59,15 @@ export const getTotalUsers: RequestHandler = async (req: Request, res: Response,
     try {
         const totalUsers = await Users.countDocuments({});
         return res.status(200).send({
-            success: true,
-            message: "Get total users successfully",
-            total: totalUsers,
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
+            data: totalUsers,
         });
     } catch (error: any) {
         next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to get quantity of all users",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Thất bại",
         });
     }
 };
@@ -76,32 +76,31 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
     try {
         const user = await Users.findById(req.params.userId).select("-password").lean().exec();
         if (!user) {
-            return res.status(404).send({
-                success: false,
-                message: "User not found",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Không tìm thấy người dùng",
             });
         }
         return res.status(200).send({
-            success: true,
-            message: "Get user by id successfully",
-            user: {
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
+            data: {
                 ...user,
             },
         });
     } catch (error: any) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to get user information",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Thất bại",
         });
     }
 };
 
 export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
-        return res.status(403).send({
-            success: false,
-            message: "You are not allowed to update this user",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Bạn không có quyền cập nhật thông tin người dùng này",
         });
     }
 
@@ -109,43 +108,48 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
         const emailRegex =
             /^(?:[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|(?:\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)$/;
         if (!req.body.email.match(emailRegex)) {
-            return res.status(400).send({
-                success: false,
-                message: "Invalid email format",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "email",
+                message: "Định dạng email không hợp lệ",
             });
         }
     }
 
     if (req.body.password) {
         if (req.body.password.length < 6) {
-            return res.status(400).send({
-                success: false,
-                message: "Password must be at least 6 characters",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "password",
+                message: "Mật khẩu cần có ít nhất 6 ký tự",
             });
         }
         req.body.password = bcryptjs.hashSync(req.body.password, 13);
     }
 
     if (req.body.displayName) {
-        if (req.body.displayName.length <= 3 || req.body.displayName.length >= 15) {
-            return res.status(400).send({
-                success: false,
-                message: "Display name must be between 4 and 14 characters",
+        if (req.body.displayName.length <= 3 || req.body.displayName.length > 14) {
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "displayName",
+                message: "Tên hiển thị cần ít nhất 4 ký tự và tối đa 14 ký tự",
             });
         }
         if (req.body.displayName.includes(" ") || !req.body.displayName.match(/^[a-zA-Z0-9]+$/)) {
-            return res.status(400).send({
-                success: false,
-                message: "Display name cannot contain spaces and special characters",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "displayName",
+                message: "Tên hiển thị không được chứa ký tự đặc biệt",
             });
         }
     }
 
     if (req.body.phoneNumber) {
         if (!req.body.phoneNumber.match(/^0\d{9}$/)) {
-            return res.status(400).send({
-                success: false,
-                message: "Invalid phone number format",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "phoneNumber",
+                message: "Định dạng số điện thoại không hợp lệ",
             });
         }
     }
@@ -166,22 +170,21 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
             .lean()
             .exec();
         if (!updatedUser) {
-            return res.status(400).send({
-                success: false,
-                message: "User not found",
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Người dùng không tồn tại"
             });
         }
         const { password, ...rest } = updatedUser;
         res.status(200).send({
-            success: true,
-            message: "User updated successfully",
-            updatedUser: rest,
+            requestStatus: IRequestStatus.Success,
+            message: "Cập nhật thông tin người dùng thành công",
+            data: rest,
         });
     } catch (error) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to update user",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
     }
 };
@@ -193,15 +196,14 @@ export const deleteSingleUser: RequestHandler = async (req: Request, res: Respon
         await Posts.deleteMany({ author: userId });
         const remainingUsers = await Users.find({}).select("-password").lean();
         return res.status(200).send({
-            success: true,
-            message: "Deleted user successfully",
-            users: remainingUsers,
+            requestStatus: IRequestStatus.Success,
+            message: "Xóa người dùng thành công",
+            data: remainingUsers,
         });
     } catch (error: any) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to delete user",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
     }
 };
@@ -212,15 +214,14 @@ export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Res
         await Users.deleteMany({ _id: { $in: userIds } }).exec();
         const remainingUsers = await Users.find({}).select("-password").lean();
         return res.status(200).send({
-            success: true,
-            message: `Deleted ${userIds.length} users successfully`,
-            users: remainingUsers,
+            requestStatus: IRequestStatus.Success,
+            message: `Xóa ${userIds.length} người thành công`,
+            data: remainingUsers,
         });
     } catch (error: any) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: `Failed to delete ${userIds.length} users`,
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
     }
 };
@@ -228,14 +229,13 @@ export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Res
 export const userLogout: RequestHandler = (_req: Request, res: Response, next: NextFunction) => {
     try {
         return res.clearCookie("access_token").status(200).json({
-            success: true,
-            message: "Sign out successfully",
+            requestStatus: IRequestStatus.Success,
+            message: `Đăng xuất thành công`,
         });
     } catch (error: any) {
-        next(error);
-        return res.status(500).send({
-            success: false,
-            message: "Failed to log out",
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
     }
 };
