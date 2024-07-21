@@ -18,7 +18,7 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
         if (!req.body.category) {
             errorField.push("category");
         }
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: errorField,
             message: "Tiêu đề, danh mục và nội dùng là bắt buộc",
@@ -27,7 +27,7 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
 
     const existingPost = await Posts.findOne({ title: req.body.title });
     if (!!existingPost) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "title",
             message: "Tiêu đề đã tồn tại",
@@ -54,7 +54,7 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
             },
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -118,7 +118,7 @@ export const getAllPosts: RequestHandler = async (req: Request, res: Response, n
             // lastMonthPosts: lastMonthPosts,
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -127,7 +127,7 @@ export const getAllPosts: RequestHandler = async (req: Request, res: Response, n
 
 export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
-        return res.status(200).send({
+        return res.status(404).send({
             requestStatus: IRequestStatus.Error,
             message: "Bạn không có quyền xóa bài viết này",
         });
@@ -147,7 +147,7 @@ export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, 
             })),
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -163,7 +163,7 @@ export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Resp
             message: "Xóa thành công",
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -179,7 +179,7 @@ export const adminMultipleDeletePosts: RequestHandler = async (req: Request, res
             message: `Xóa ${postIds.length} bài viết thành công`,
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -188,7 +188,7 @@ export const adminMultipleDeletePosts: RequestHandler = async (req: Request, res
 
 export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
-        return res.status(200).send({
+        return res.status(404).send({
             requestStatus: IRequestStatus.Error,
             message: "Bạn không có quyền cập nhật bài viết này",
         });
@@ -219,7 +219,7 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
             },
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -231,7 +231,7 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
     const status = req.body.status;
 
     if (!status) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             message: "Vui lòng lựa chọn trạng thái bài viết",
         });
@@ -245,7 +245,7 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
         });
     } catch (error) {
         next(error);
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });

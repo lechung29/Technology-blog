@@ -14,7 +14,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
     const { displayName, email, password } = req.body;
 
     if (!email) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
             message: "Tài khoản email là bắt buộc",
@@ -22,7 +22,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
     }
 
     if (!password) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "password",
             message: "Mật khẩu là bắt buộc",
@@ -30,7 +30,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
     }
 
     if (!displayName) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "displayName",
             message: "Tên hiển thị là bắt buộc",
@@ -51,7 +51,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
 
     if (password) {
         if (password.length < 6) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "password",
                 message: "Mật khẩu cần có ít nhất 6 ký tự",
@@ -62,14 +62,14 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
 
     if (displayName) {
         if (displayName.length <= 3 || displayName.length > 14) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
                 message: "Tên hiển thị cần ít nhất 4 ký tự và tối đa 14 ký tự",
             });
         }
         if (displayName.includes(" ") || !displayName.match(/^[a-zA-Z0-9]+$/)) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
                 message: "Tên hiển thị không được chứa ký tự đặc biệt",
@@ -99,7 +99,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
             message: "Đăng ký người dùng mới thành công",
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -110,7 +110,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
     const { email, password } = req.body;
 
     if (!email) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
             message: "Tài khoản email là bắt buộc",
@@ -118,7 +118,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
     }
 
     if (!password) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "password",
             message: "Mật khẩu là bắt buộc",
@@ -129,7 +129,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         const emailRegex =
             /^(?:[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|(?:\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)$/;
         if (!email.match(emailRegex)) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "email",
                 message: "Định dạng email không hợp lệ",
@@ -139,7 +139,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
 
     if (password) {
         if (password.length < 6) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "password",
                 message: "Mật khẩu cần có ít nhất 6 ký tự",
@@ -158,7 +158,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
 
     const validPassword = bcryptjs.compareSync(password, validUser.password);
     if (!validPassword) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "password",
             message: "Mật khẩu không đúng",
@@ -178,7 +178,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
             data: rest,
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             success: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });

@@ -8,7 +8,7 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
 
     // For api requests
     if (commentator !== req.user?.id) {
-        return res.status(200).send({
+        return res.status(403).send({
             requestStatus: IRequestStatus.Error,
             message: "Bạn không có quyền bình luận bài viết này",
         });
@@ -28,7 +28,7 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
             message: "Bình luận thành công",
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -47,7 +47,7 @@ export const getAllCommentsByPostId: RequestHandler = async (req: AuthenticatedR
             comments: allPostComments,
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -58,7 +58,7 @@ export const updateComment: RequestHandler = async (req: AuthenticatedRequest, r
     const { content, commentator } = req.body;
     const { commentId } = req.params;
     if (commentator !== req.user?.id) {
-        return res.status(200).send({
+        return res.status(403).send({
             requestStatus: IRequestStatus.Error,
             message: "Bạn không có quyền cập nhật bình luận này",
         });
@@ -71,7 +71,7 @@ export const updateComment: RequestHandler = async (req: AuthenticatedRequest, r
             message: "Đã cập nhật bình luận thành công",
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -95,7 +95,7 @@ export const deleteComment: RequestHandler = async (req: AuthenticatedRequest, r
             message: "Đã xóa bình luận thành công",
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
@@ -106,7 +106,7 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
     try {
         const comment = await Comments.findById(req.params.id);
         if (!comment) {
-            return res.status(200).send({
+            return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
                 message: "Bình luận không tồn tại",
             });
@@ -127,7 +127,7 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
             totalLike: comment.like.length,
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });

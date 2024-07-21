@@ -48,7 +48,7 @@ export const getAllUsers: RequestHandler = async (req: Request, res: Response, n
             data: allUsers,
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Thất bại",
         });
@@ -64,8 +64,7 @@ export const getTotalUsers: RequestHandler = async (req: Request, res: Response,
             data: totalUsers,
         });
     } catch (error: any) {
-        next(error);
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Thất bại",
         });
@@ -76,7 +75,7 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
     try {
         const user = await Users.findById(req.params.userId).select("-password").lean().exec();
         if (!user) {
-            return res.status(200).send({
+            return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
                 message: "Không tìm thấy người dùng",
             });
@@ -89,7 +88,7 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
             },
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Thất bại",
         });
@@ -98,7 +97,7 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
 
 export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
-        return res.status(200).send({
+        return res.status(403).send({
             requestStatus: IRequestStatus.Error,
             message: "Bạn không có quyền cập nhật thông tin người dùng này",
         });
@@ -108,7 +107,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
         const emailRegex =
             /^(?:[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|(?:\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)$/;
         if (!req.body.email.match(emailRegex)) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "email",
                 message: "Định dạng email không hợp lệ",
@@ -118,7 +117,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
 
     if (req.body.password) {
         if (req.body.password.length < 6) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "password",
                 message: "Mật khẩu cần có ít nhất 6 ký tự",
@@ -129,14 +128,14 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
 
     if (req.body.displayName) {
         if (req.body.displayName.length <= 3 || req.body.displayName.length > 14) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
                 message: "Tên hiển thị cần ít nhất 4 ký tự và tối đa 14 ký tự",
             });
         }
         if (req.body.displayName.includes(" ") || !req.body.displayName.match(/^[a-zA-Z0-9]+$/)) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
                 message: "Tên hiển thị không được chứa ký tự đặc biệt",
@@ -146,7 +145,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
 
     if (req.body.phoneNumber) {
         if (!req.body.phoneNumber.match(/^0\d{9}$/)) {
-            return res.status(200).send({
+            return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "phoneNumber",
                 message: "Định dạng số điện thoại không hợp lệ",
@@ -170,7 +169,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
             .lean()
             .exec();
         if (!updatedUser) {
-            return res.status(200).send({
+            return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
                 message: "Người dùng không tồn tại"
             });
@@ -182,7 +181,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
             data: rest,
         });
     } catch (error) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
@@ -201,7 +200,7 @@ export const deleteSingleUser: RequestHandler = async (req: Request, res: Respon
             data: remainingUsers,
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
@@ -219,7 +218,7 @@ export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Res
             data: remainingUsers,
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
@@ -233,7 +232,7 @@ export const userLogout: RequestHandler = (_req: Request, res: Response, next: N
             message: `Đăng xuất thành công`,
         });
     } catch (error: any) {
-        return res.status(200).send({
+        return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
         });
