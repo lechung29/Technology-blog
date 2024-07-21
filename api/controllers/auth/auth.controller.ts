@@ -184,3 +184,45 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         });
     }
 };
+
+export const googleAuth: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const { email, displayName, avatar} = req.body;
+    try {
+        const user = await Users.findOne({email}).lean();
+        if (!process.env.JWT_SECRET) {
+            throw new Error("Token cannot be defined");
+        }
+        if (user) {
+            const token = jwt.sign({id: user._id}, process.env.JWT_SECRET, { expiresIn: "1d" });
+            const {password, ...rest} = user; 
+            return res.status(200).cookie("access_token", token, { httpOnly: true }).send({
+                requestStatus: IRequestStatus.Success,
+                message: "Đăng nhập thành công",
+                data: rest,
+            });
+        } else {
+            const generatedPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
+            const hashedPassword = bcryptjs.hashSync(generatedPassword, 10)
+            const newUser = new Users({
+                displayName: displayName.toLowerCase().split(" ").join(""),
+                email: email,
+                password: hashedPassword,
+                avatar: avatar,
+            })
+            await newUser.save();
+            const currentUser = await Users.findById((newUser._id as any).toString()).lean()
+            const token = jwt.sign({id: currentUser?._id}, process.env.JWT_SECRET, { expiresIn: "1d" });
+            const {password, ...rest} = currentUser!;
+            return res.status(201).cookie("access_token", token, { httpOnly: true }).send({
+                requestStatus: IRequestStatus.Success,
+                message: "Đăng nhập thành công",
+                data: rest,
+            });
+        }
+    } catch (error) {
+        return res.status(500).send({
+            success: IRequestStatus.Error,
+            message: "Cos lỗi khi đăng nhập bằng Google, vui lòng chờ đợi trong giây lát",
+        });
+    }
+} 

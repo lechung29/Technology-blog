@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerNewUser, userLogin } from '../../controllers/auth/auth.controller';
+import { googleAuth, registerNewUser, userLogin } from '../../controllers/auth/auth.controller';
 
 const authRouter = express.Router();
 
@@ -8,5 +8,7 @@ authRouter.post("/register", registerNewUser)
 
 // Login
 authRouter.post("/login", userLogin )
+
+authRouter.post("/google", googleAuth)
 
 export default authRouter;
