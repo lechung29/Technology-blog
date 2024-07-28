@@ -9,7 +9,7 @@ export const isAdmin = async (req: AuthenticatedRequest, res: Response, next: Ne
         if (admin?.role !== "admin") {
             return res.status(401).send({
                 success: false,
-                message: "You don't have permission to access",
+                message: "Bạn không có quyền thực hiện chức năng này",
             })
         } else {
             next()

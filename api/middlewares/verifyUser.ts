@@ -14,7 +14,7 @@ export const verifyToken = async (req: AuthenticatedRequest, res: Response, next
         next(errorHandler(401, "Unauthorized"));
         return res.status(401).send({
             success: false,
-            message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục"
+            message: "Vui lòng đăng nhập lại để tiếp tục"
         })
     }
 
