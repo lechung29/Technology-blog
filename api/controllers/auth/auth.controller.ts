@@ -170,12 +170,15 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
     }
 
     try {
-        const token = jwt.sign({ id: validUser?._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-        const { password: pass, ...rest } = validUser;
-        return res.status(200).cookie("access_token", token, { httpOnly: true }).send({
+        const accessToken = jwt.sign({id: validUser?._id}, process.env.JWT_SECRET, { expiresIn: "1h" });
+        const {password, ...rest} = validUser!;
+        return res.status(201).cookie("access_token", accessToken, { httpOnly: true, secure: false, sameSite: "strict" }).send({
             requestStatus: IRequestStatus.Success,
             message: "Đăng nhập thành công",
-            data: rest,
+            data: {
+                ...rest,
+                accessToken: accessToken,
+            }
         });
     } catch (error: any) {
         return res.status(500).send({
@@ -211,18 +214,21 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
             })
             await newUser.save();
             const currentUser = await Users.findById((newUser._id as any).toString()).lean()
-            const token = jwt.sign({id: currentUser?._id}, process.env.JWT_SECRET, { expiresIn: "1d" });
+            const accessToken = jwt.sign({id: currentUser?._id}, process.env.JWT_SECRET, { expiresIn: "1h" });
             const {password, ...rest} = currentUser!;
-            return res.status(201).cookie("access_token", token, { httpOnly: true }).send({
+            return res.status(201).cookie("access_token", accessToken, { httpOnly: true, secure: false, sameSite: "strict" }).send({
                 requestStatus: IRequestStatus.Success,
                 message: "Đăng nhập thành công",
-                data: rest,
+                data: {
+                    ...rest,
+                    accessToken: accessToken,
+                }
             });
         }
     } catch (error) {
         return res.status(500).send({
             success: IRequestStatus.Error,
-            message: "Cos lỗi khi đăng nhập bằng Google, vui lòng chờ đợi trong giây lát",
+            message: "Có lỗi khi đăng nhập bằng Google, vui lòng chờ đợi trong giây lát",
         });
     }
 } 
