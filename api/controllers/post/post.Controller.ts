@@ -7,41 +7,23 @@ import { ISortDirection } from "../users/users.controller";
 import { IRequestStatus } from "../auth/auth.controller";
 
 export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.body.title || !req.body.content || !req.body.category) {
-        const errorField: Array<string> = [];
-        if (!req.body.title) {
-            errorField.push("title");
-        }
-        if (!req.body.content) {
-            errorField.push("content");
-        }
-        if (!req.body.category) {
-            errorField.push("category");
-        }
-        return res.status(400).send({
-            requestStatus: IRequestStatus.Error,
-            fieldError: errorField,
-            message: "Tiêu đề, danh mục và nội dùng là bắt buộc",
-        });
-    }
-
-    const existingPost = await Posts.findOne({ title: req.body.title });
-    if (!!existingPost) {
-        return res.status(400).send({
-            requestStatus: IRequestStatus.Error,
-            fieldError: "title",
-            message: "Tiêu đề đã tồn tại",
-        });
-    }
-
-    const slug = getSlug(req.body.title);
-    const newPost = new Posts({
-        ...req.body,
-        slug,
-        author: req.user?.id,
-    });
-
     try {
+        const existingPost = await Posts.findOne({ title: req.body.title });
+        if (!!existingPost) {
+            return res.status(400).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "title",
+                message: "Tiêu đề đã tồn tại",
+            });
+        }
+
+        const slug = getSlug(req.body.title);
+        const newPost = new Posts({
+            ...req.body,
+            slug,
+            author: req.user?.id,
+        });
+
         const savedPost = (await newPost.save()).toObject();
         const formattedPost = await Posts.findById((savedPost._id as any).toString())
             .populate({ path: "author", select: "displayName email" })
@@ -56,7 +38,7 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: error,
         });
     }
 };
@@ -81,9 +63,9 @@ export const getAllPosts: RequestHandler = async (req: Request, res: Response, n
                 const authorName = filterInfo[i + 1];
                 const author = await Users.findOne({ displayName: authorName }).lean();
                 if (!!author) {
-                    filterObject['author'] = author._id;
+                    filterObject["author"] = author._id;
                 } else {
-                    filterObject['author'] = null;
+                    filterObject["author"] = null;
                 }
             } else {
                 filterObject[filterInfo[i]] = filterInfo[i + 1];

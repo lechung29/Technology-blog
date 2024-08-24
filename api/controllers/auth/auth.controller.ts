@@ -170,7 +170,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
     }
 
     try {
-        const accessToken = jwt.sign({id: validUser?._id}, process.env.JWT_SECRET, { expiresIn: "1h" });
+        const accessToken = jwt.sign({id: validUser?._id}, process.env.JWT_SECRET);
         const {password, ...rest} = validUser!;
         return res.status(201).cookie("access_token", accessToken, { httpOnly: true, secure: false, sameSite: "strict" }).send({
             requestStatus: IRequestStatus.Success,
@@ -214,7 +214,7 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
             })
             await newUser.save();
             const currentUser = await Users.findById((newUser._id as any).toString()).lean()
-            const accessToken = jwt.sign({id: currentUser?._id}, process.env.JWT_SECRET, { expiresIn: "1h" });
+            const accessToken = jwt.sign({id: currentUser?._id}, process.env.JWT_SECRET);
             const {password, ...rest} = currentUser!;
             return res.status(201).cookie("access_token", accessToken, { httpOnly: true, secure: false, sameSite: "strict" }).send({
                 requestStatus: IRequestStatus.Success,

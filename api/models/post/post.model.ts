@@ -16,6 +16,7 @@ export interface IPost extends Document {
     title: string;
     slug: string;
     category: string;
+    tags: string[];
     thumbnail: string;
     content: string;
     author: mongoose.Types.ObjectId | IUserInfo;
@@ -39,6 +40,12 @@ const postSchema = new mongoose.Schema<IPost>(
             type: String,
             required: true,
         },
+        tags: [
+            {
+                type: String,
+                required: true,
+            }
+        ],
         thumbnail: {
             type: String,
             default: "https://img.lovepik.com/free-template/bg/20190702/bg/877531811030a.png_master.jpg",
