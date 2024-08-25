@@ -38,12 +38,28 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
 
 export const getAllPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const allPosts = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
+            data: allPosts,
+        });
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+        });
+    }
+};
+
+export const getFilterPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 9;
 
