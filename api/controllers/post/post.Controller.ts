@@ -123,7 +123,7 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
     }
 };
 
-export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
         return res.status(404).send({
             requestStatus: IRequestStatus.Error,
@@ -132,9 +132,7 @@ export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, 
     }
     try {
         await Posts.findByIdAndDelete(req.params.postId);
-        const allPostsLast = await Posts.find({
-            author: req.user?.id,
-        })
+        const allPostsLast = await Posts.find()
             .populate({ path: "author", select: "displayName email" })
             .lean();
         return res.status(200).send({
@@ -155,10 +153,16 @@ export const userDeletePost: RequestHandler = async (req: AuthenticatedRequest, 
 export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const postId = req.params.postId;
     try {
-        await Posts.findByIdAndDelete(postId).exec();
+        await Posts.findByIdAndDelete(postId)
+        const allPostsLast = await Posts.find()
+            .populate({ path: "author", select: "displayName email" })
+            .lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Xóa thành công",
+            data: allPostsLast.map((post) => ({
+                ...post,
+            })),
         });
     } catch (error) {
         return res.status(500).send({
@@ -168,13 +172,19 @@ export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Resp
     }
 };
 
-export const adminMultipleDeletePosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const multipleDeletePosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const postIds: string[] = req.body.postIds;
     try {
-        await Posts.deleteMany({ _id: { $in: postIds } }).exec();
+        await Posts.deleteMany({ _id: { $in: postIds } })
+        const allPostsLast = await Posts.find()
+            .populate({ path: "author", select: "displayName email" })
+            .lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: `Xóa ${postIds.length} bài viết thành công`,
+            data: allPostsLast.map((post) => ({
+                ...post,
+            })),
         });
     } catch (error) {
         return res.status(500).send({
