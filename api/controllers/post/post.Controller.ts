@@ -247,9 +247,15 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
 
     try {
         await Posts.findByIdAndUpdate(postId, { $set: { status } }, { new: true });
+        const allPosts = await Posts.find()
+            .populate({ path: "author", select: "displayName email" })
+            .lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Cập nhật trạng thái bài viết thành công",
+            data: allPosts.map((post) => ({
+                ...post,
+            })),
         });
     } catch (error) {
         next(error);
