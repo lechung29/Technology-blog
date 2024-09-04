@@ -69,6 +69,8 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
         for (let i = 0; i < sortInfo.length; i = i + 2) {
             sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
         }
+    } else {
+        sortObject["createdAt"] = ISortDirection.DESC;
     }
 
     const filterObject: Record<string, string | null | Object> = {};
@@ -99,7 +101,7 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
             .skip((page - 1) * limit)
             .limit(limit)
             .sort(sortObject)
-            .populate({ path: "author", select: "displayName email" })
+            .populate({ path: "author", select: "displayName email avatar" })
             .lean()
             .exec();
 
@@ -122,6 +124,93 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
         });
     }
 };
+
+export const getPublicPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 9;
+
+    const sortObject: Record<string, ISortDirection> = {};
+    if (!!req.params.sort) {
+        const sortInfo = (req.query.sort as string).split(" ");
+        for (let i = 0; i < sortInfo.length; i = i + 2) {
+            sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+        }
+    } else {
+        sortObject["createdAt"] = ISortDirection.DESC;
+    }
+
+    const filterObject: Record<string, string | null | Object> = {
+        "status": "Public",
+    };
+    if (!!req.query.filter) {
+        const filterInfo = (req.query.filter as string).split(" ");
+        for (let i = 0; i < filterInfo.length; i = i + 2) {
+            if (filterInfo[i] === "author") {
+                const authorName = filterInfo[i + 1];
+                const author = await Users.findOne({ displayName: authorName }).lean();
+                if (!!author) {
+                    filterObject["author"] = author._id;
+                } else {
+                    filterObject["author"] = null;
+                }
+            } else {
+                filterObject[filterInfo[i]] = filterInfo[i + 1];
+            }
+        }
+    }
+
+    const searchText = req.query.search;
+    if (searchText) {
+        filterObject["title"] = { $regex: searchText, $options: "i" };
+    }
+
+    try {
+        const posts = await Posts.find(filterObject)
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .sort(sortObject)
+            .populate({ path: "author", select: "displayName email avatar" })
+            .lean()
+            .exec();
+
+        // const totalPost = await Posts.countDocuments();
+        // const now = new Date();
+        // const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+        // const lastMonthPosts = await Posts.countDocuments({ createdAt: { $gte: lastMonth } });
+
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
+            data: posts,
+            // totalPosts: totalPost,
+            // lastMonthPosts: lastMonthPosts,
+        });
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+        });
+    }
+};
+
+export const getMaxPages: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const totalPosts =  await Posts.countDocuments({});
+
+        const maxPages = Math.ceil(totalPosts / 5);
+
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Thành công",
+            data: maxPages,
+        });
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+        });
+    }
+}
 
 export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
