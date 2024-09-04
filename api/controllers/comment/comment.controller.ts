@@ -37,7 +37,7 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
 
 export const getAllCommentsByPostId: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { postId } = req.params;
-    const { skip } = req.body.skip;
+    const { skip } = req.body.skip || 1;
     const limit = 10;
     try {
         const allPostComments = await Comments.find({ post: postId }).populate({ path: "commentator", select: "displayName email" }).skip(skip).limit(limit).sort({ createAt: -1 }).lean();

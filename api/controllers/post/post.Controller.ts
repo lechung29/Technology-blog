@@ -140,7 +140,7 @@ export const getPublicPosts: RequestHandler = async (req: Request, res: Response
     }
 
     const filterObject: Record<string, string | null | Object> = {
-        "status": "Public",
+        status: "Public",
     };
     if (!!req.query.filter) {
         const filterInfo = (req.query.filter as string).split(" ");
@@ -193,9 +193,33 @@ export const getPublicPosts: RequestHandler = async (req: Request, res: Response
     }
 };
 
+export const getSinglePost: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const postId = req.params.postId;
+    try {
+        const post = await Posts.findById(postId).populate({ path: "author", select: "displayName email avatar" }).lean();
+        if (!post) {
+            return res.status(404).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Bài viết không tồn tại",
+            });
+        } else {
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Success,
+                message: "Thành công",
+                data: post,
+            });
+        }
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+        });
+    }
+};
+
 export const getMaxPages: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const totalPosts =  await Posts.countDocuments({});
+        const totalPosts = await Posts.countDocuments({});
 
         const maxPages = Math.ceil(totalPosts / 5);
 
@@ -210,7 +234,7 @@ export const getMaxPages: RequestHandler = async (req: Request, res: Response, n
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
-}
+};
 
 export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
@@ -221,9 +245,7 @@ export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedReq
     }
     try {
         await Posts.findByIdAndDelete(req.params.postId);
-        const allPostsLast = await Posts.find()
-            .populate({ path: "author", select: "displayName email" })
-            .lean();
+        const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Xóa thành công",
@@ -242,10 +264,8 @@ export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedReq
 export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const postId = req.params.postId;
     try {
-        await Posts.findByIdAndDelete(postId)
-        const allPostsLast = await Posts.find()
-            .populate({ path: "author", select: "displayName email" })
-            .lean();
+        await Posts.findByIdAndDelete(postId);
+        const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Xóa thành công",
@@ -264,10 +284,8 @@ export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Resp
 export const multipleDeletePosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const postIds: string[] = req.body.postIds;
     try {
-        await Posts.deleteMany({ _id: { $in: postIds } })
-        const allPostsLast = await Posts.find()
-            .populate({ path: "author", select: "displayName email" })
-            .lean();
+        await Posts.deleteMany({ _id: { $in: postIds } });
+        const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: `Xóa ${postIds.length} bài viết thành công`,
@@ -336,9 +354,7 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
 
     try {
         await Posts.findByIdAndUpdate(postId, { $set: { status } }, { new: true });
-        const allPosts = await Posts.find()
-            .populate({ path: "author", select: "displayName email" })
-            .lean();
+        const allPosts = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Cập nhật trạng thái bài viết thành công",
