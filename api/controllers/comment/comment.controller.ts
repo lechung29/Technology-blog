@@ -14,6 +14,13 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
         });
     }
 
+    if (!content) {
+        return res.status(400).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Nội dung bình luận không được để trống",
+        });
+    }
+
     try {
         const newComment = new Comments({
             content,
@@ -104,7 +111,7 @@ export const deleteComment: RequestHandler = async (req: AuthenticatedRequest, r
 
 export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const comment = await Comments.findById(req.params.id);
+        const comment = await Comments.findById(req.params.commentId);
         if (!comment) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
@@ -113,18 +120,20 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
         }
 
         const userIndex = comment.like.indexOf(req.user?.id);
+        let message: string
 
         if (userIndex === -1) {
             comment.like.push(req.user?.id);
+            message = "Đã thích bình luận";
         } else {
             comment.like.splice(userIndex, 1);
+            message = "Bỏ thích";
         }
 
         await comment.save();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Đã thích bình luận",
-            totalLike: comment.like.length,
+            message: message,
         });
     } catch (error) {
         return res.status(500).send({

@@ -5,6 +5,7 @@ import Users from "../../models/users/user.model";
 import { getSlug } from "../../utils/utils";
 import { ISortDirection } from "../users/users.controller";
 import { IRequestStatus } from "../auth/auth.controller";
+import Comments from "../../models/comment/comment.model";
 
 export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -193,10 +194,18 @@ export const getPublicPosts: RequestHandler = async (req: Request, res: Response
     }
 };
 
-export const getSinglePost: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const getSinglePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const postId = req.params.postId;
+    const userId = req.params.userId;
     try {
-        const post = await Posts.findById(postId).populate({ path: "author", select: "displayName email avatar" }).lean();
+        const post = 
+            await Posts.findById(postId)
+            .populate({ path: "author", select: "displayName email avatar" })
+            .lean();
+        const allPostComments = 
+            await Comments.find({post: postId})
+            .populate({path: "commentator", select: "displayName email avatar"})
+            .lean()
         if (!post) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
@@ -206,7 +215,15 @@ export const getSinglePost: RequestHandler = async (req: Request, res: Response,
             return res.status(200).send({
                 requestStatus: IRequestStatus.Success,
                 message: "Thành công",
-                data: post,
+                data: {
+                    ...post,
+                    comments: allPostComments.map((comment) => {
+                        return {
+                            ...comment,
+                            isLike: comment.like.includes(userId),
+                        }
+                    }),
+                },
             });
         }
     } catch (error) {

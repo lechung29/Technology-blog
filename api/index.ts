@@ -27,7 +27,7 @@ connectDB()
 app.use('/api/v1/auth/', authRouter);
 app.use('/api/v1/user/', userRouter)
 app.use('/api/v1/post/', postRoute)
-app.use('/api/v1/comment', commentRoute)
+app.use('/api/v1/comment/', commentRoute)
 
 
 app.listen(port, () => {

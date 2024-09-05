@@ -20,7 +20,6 @@ export interface IPost extends Document {
     thumbnail: string;
     content: string;
     author: mongoose.Types.ObjectId | IUserInfo;
-    comments: (mongoose.Types.ObjectId | IComment)[];
     status: PostState;
 }
 
@@ -59,12 +58,6 @@ const postSchema = new mongoose.Schema<IPost>(
             ref: "Users", 
             required: true 
         },
-        comments: [
-            { 
-                type: mongoose.Schema.Types.ObjectId, 
-                ref: 'Comment' 
-            }
-        ],
         status: {
             type: String,
             required: true,
