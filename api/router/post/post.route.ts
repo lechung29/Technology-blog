@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyToken } from '../../middlewares/verifyUser';
-import { multipleDeletePosts, adminSingleDeletePost, adminUpdateStatusPost, createNewPost, getAllPosts, getFilterPosts, userSingleDeletePost, userUpdatePost, getPublicPosts, getMaxPages, getSinglePost } from '../../controllers/post/post.Controller';
+import { multipleDeletePosts, adminSingleDeletePost, adminUpdateStatusPost, createNewPost, getAllPosts, getFilterPosts, userSingleDeletePost, userUpdatePost, getPublicPosts, getMaxPages, getSinglePost, likePost } from '../../controllers/post/post.Controller';
 import { isAdmin } from '../../middlewares/authMiddleware';
 
 const postRoute = express.Router();
@@ -11,6 +11,7 @@ postRoute.get("/get-filters-posts", getFilterPosts)
 postRoute.get("/get-public-posts", getPublicPosts)
 postRoute.get("/get-single-post/:postId/:userId", getSinglePost)
 postRoute.get("/get-max-pages", getMaxPages)
+postRoute.put("/like-post/:postId", verifyToken, likePost)
 postRoute.put("/update-post/:postId/:userId", verifyToken, userUpdatePost)
 postRoute.put("/update-post/:postId", verifyToken, isAdmin, adminUpdateStatusPost)
 postRoute.delete("/delete-post/:postId/:userId", verifyToken, userSingleDeletePost)

@@ -198,14 +198,8 @@ export const getSinglePost: RequestHandler = async (req: AuthenticatedRequest, r
     const postId = req.params.postId;
     const userId = req.params.userId;
     try {
-        const post = 
-            await Posts.findById(postId)
-            .populate({ path: "author", select: "displayName email avatar" })
-            .lean();
-        const allPostComments = 
-            await Comments.find({post: postId})
-            .populate({path: "commentator", select: "displayName email avatar"})
-            .lean()
+        const post = await Posts.findById(postId).populate({ path: "author", select: "displayName email avatar" }).lean();
+        const allPostComments = await Comments.find({ post: postId }).populate({ path: "commentator", select: "displayName email avatar" }).lean();
         if (!post) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
@@ -217,11 +211,12 @@ export const getSinglePost: RequestHandler = async (req: AuthenticatedRequest, r
                 message: "Thành công",
                 data: {
                     ...post,
+                    isLike: post.like.includes(userId),
                     comments: allPostComments.map((comment) => {
                         return {
                             ...comment,
                             isLike: comment.like.includes(userId),
-                        }
+                        };
                     }),
                 },
             });
@@ -354,6 +349,41 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+        });
+    }
+};
+
+export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const post = await Posts.findById(req.params.postId)
+        if (!post) {
+            return res.status(404).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Bài viết không tồn tại",
+            });
+        }
+
+        const userIndex = post.like.indexOf(req.user?.id);
+        let message: string;
+
+        if (userIndex === -1) {
+            post.like.push(req.user?.id);
+            message = "Đã thích bài viết";
+        } else {
+            post.like.splice(userIndex, 1);
+            message = "Bỏ thích";
+        }
+
+        await post.save();
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: message,
+        });
+    } catch (error: any) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            // message: error.message
         });
     }
 };

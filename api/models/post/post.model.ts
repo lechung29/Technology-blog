@@ -3,9 +3,9 @@ import { IUserInfo } from "../users/user.model";
 import { IComment } from "../comment/comment.model";
 
 export enum PostState {
-    PENDING = "Pending",
-    PUBLISHED = "Published",
-    REJECTED = "Rejected",
+    Public = "Public",
+    Pending = "Pending",
+    Hide = "Hide",
 }
 
 export enum PostType {
@@ -21,6 +21,7 @@ export interface IPost extends Document {
     content: string;
     author: mongoose.Types.ObjectId | IUserInfo;
     status: PostState;
+    like: Array<string>;
 }
 
 const postSchema = new mongoose.Schema<IPost>(
@@ -61,9 +62,15 @@ const postSchema = new mongoose.Schema<IPost>(
         status: {
             type: String,
             required: true,
-            default: PostState.PENDING,
+            default: PostState.Pending,
             enum: Object.values(PostState),
         },
+        like: [
+            {
+                type: String,
+                default: []
+            }
+        ]
     },
     { timestamps: true }
 );
