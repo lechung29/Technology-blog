@@ -22,6 +22,7 @@ export interface IPost extends Document {
     author: mongoose.Types.ObjectId | IUserInfo;
     status: PostState;
     like: Array<string>;
+    totalLikes: number;
 }
 
 const postSchema = new mongoose.Schema<IPost>(
@@ -70,7 +71,11 @@ const postSchema = new mongoose.Schema<IPost>(
                 type: String,
                 default: []
             }
-        ]
+        ],
+        totalLikes: {
+            type: Number,
+            default: 0,
+        }
     },
     { timestamps: true }
 );

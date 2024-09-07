@@ -65,16 +65,22 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
     const limit = parseInt(req.query.limit as string) || 9;
 
     const sortObject: Record<string, ISortDirection> = {};
-    if (!!req.params.sort) {
+    if (!!req.query.sort) {
         const sortInfo = (req.query.sort as string).split(" ");
         for (let i = 0; i < sortInfo.length; i = i + 2) {
-            sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+            if (sortInfo[i] === "like") {
+                sortObject["totalLikes"] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+            } else {
+                sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+            }
         }
     } else {
         sortObject["createdAt"] = ISortDirection.DESC;
     }
 
     const filterObject: Record<string, string | null | Object> = {};
+    let filterTagsName: string[] = [];
+    let filterCategory: string[] = [];
     if (!!req.query.filter) {
         const filterInfo = (req.query.filter as string).split(" ");
         for (let i = 0; i < filterInfo.length; i = i + 2) {
@@ -86,9 +92,24 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
                 } else {
                     filterObject["author"] = null;
                 }
+            } else if (filterInfo[i] === "tags") {
+                filterTagsName.push(filterInfo[i + 1]);
+            } else if (filterInfo[i] === "category") {
+                filterCategory.push(filterInfo[i + 1]);
             } else {
                 filterObject[filterInfo[i]] = filterInfo[i + 1];
             }
+        }
+
+        filterObject["tags"] = { $in: filterTagsName.map((tag) => new RegExp(`^${tag}$`, "i")) };
+        filterObject["category"] = { $in: filterCategory };
+
+        if (!filterInfo.includes("tags")) {
+            delete filterObject["tags"];
+        }
+
+        if (!filterInfo.includes("category")) {
+            delete filterObject["category"];
         }
     }
 
@@ -106,85 +127,17 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
             .lean()
             .exec();
 
-        // const totalPost = await Posts.countDocuments();
-        // const now = new Date();
-        // const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-        // const lastMonthPosts = await Posts.countDocuments({ createdAt: { $gte: lastMonth } });
+        const allPostComments = await Comments.find().populate({ path: "commentator", select: "displayName email avatar" }).lean();
 
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Thành công",
-            data: posts,
-            // totalPosts: totalPost,
-            // lastMonthPosts: lastMonthPosts,
-        });
-    } catch (error) {
-        return res.status(500).send({
-            requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
-        });
-    }
-};
-
-export const getPublicPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 9;
-
-    const sortObject: Record<string, ISortDirection> = {};
-    if (!!req.params.sort) {
-        const sortInfo = (req.query.sort as string).split(" ");
-        for (let i = 0; i < sortInfo.length; i = i + 2) {
-            sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
-        }
-    } else {
-        sortObject["createdAt"] = ISortDirection.DESC;
-    }
-
-    const filterObject: Record<string, string | null | Object> = {
-        status: "Public",
-    };
-    if (!!req.query.filter) {
-        const filterInfo = (req.query.filter as string).split(" ");
-        for (let i = 0; i < filterInfo.length; i = i + 2) {
-            if (filterInfo[i] === "author") {
-                const authorName = filterInfo[i + 1];
-                const author = await Users.findOne({ displayName: authorName }).lean();
-                if (!!author) {
-                    filterObject["author"] = author._id;
-                } else {
-                    filterObject["author"] = null;
-                }
-            } else {
-                filterObject[filterInfo[i]] = filterInfo[i + 1];
-            }
-        }
-    }
-
-    const searchText = req.query.search;
-    if (searchText) {
-        filterObject["title"] = { $regex: searchText, $options: "i" };
-    }
-
-    try {
-        const posts = await Posts.find(filterObject)
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .sort(sortObject)
-            .populate({ path: "author", select: "displayName email avatar" })
-            .lean()
-            .exec();
-
-        // const totalPost = await Posts.countDocuments();
-        // const now = new Date();
-        // const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-        // const lastMonthPosts = await Posts.countDocuments({ createdAt: { $gte: lastMonth } });
-
-        return res.status(200).send({
-            requestStatus: IRequestStatus.Success,
-            message: "Thành công",
-            data: posts,
-            // totalPosts: totalPost,
-            // lastMonthPosts: lastMonthPosts,
+            data: posts.map((post) => {
+                return {
+                    ...post,
+                    comments: allPostComments.filter((comment) => comment.post.toString() === post._id.toString()),
+                };
+            }),
         });
     } catch (error) {
         return res.status(500).send({
@@ -221,19 +174,62 @@ export const getSinglePost: RequestHandler = async (req: AuthenticatedRequest, r
                 },
             });
         }
-    } catch (error) {
+    } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
+            serverError: error.message,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
         });
     }
 };
 
 export const getMaxPages: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const totalPosts = await Posts.countDocuments({});
+    const limit = parseInt(req.query.limit as string) || 9;
+    const filterObject: Record<string, string | null | Object> = {};
 
-        const maxPages = Math.ceil(totalPosts / 5);
+    let filterTagsName: string[] = [];
+    let filterCategory: string[] = [];
+    if (!!req.query.filter) {
+        const filterInfo = (req.query.filter as string).split(" ");
+        for (let i = 0; i < filterInfo.length; i = i + 2) {
+            if (filterInfo[i] === "author") {
+                const authorName = filterInfo[i + 1];
+                const author = await Users.findOne({ displayName: authorName }).lean();
+                if (!!author) {
+                    filterObject["author"] = author._id;
+                } else {
+                    filterObject["author"] = null;
+                }
+            } else if (filterInfo[i] === "tags") {
+                filterTagsName.push(filterInfo[i + 1]);
+            } else if (filterInfo[i] === "category") {
+                filterCategory.push(filterInfo[i + 1]);
+            } else {
+                filterObject[filterInfo[i]] = filterInfo[i + 1];
+            }
+        }
+
+        filterObject["tags"] = { $in: filterTagsName.map((tag) => new RegExp(`^${tag}$`, "i")) };
+        filterObject["category"] = { $in: filterCategory };
+
+        if (!filterInfo.includes("tags")) {
+            delete filterObject["tags"];
+        }
+
+        if (!filterInfo.includes("category")) {
+            delete filterObject["category"];
+        }
+    }
+
+    const searchText = req.query.search;
+    if (searchText) {
+        filterObject["title"] = { $regex: searchText, $options: "i" };
+    }
+
+    try {
+        const totalPostsByFilter = await Posts.find(filterObject).countDocuments({});
+
+        const maxPages = Math.ceil(totalPostsByFilter / limit);
 
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
@@ -355,7 +351,7 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
 
 export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const post = await Posts.findById(req.params.postId)
+        const post = await Posts.findById(req.params.postId);
         if (!post) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
@@ -368,9 +364,11 @@ export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: R
 
         if (userIndex === -1) {
             post.like.push(req.user?.id);
+            post.totalLikes += 1;
             message = "Đã thích bài viết";
         } else {
             post.like.splice(userIndex, 1);
+            post.totalLikes -= 1;
             message = "Bỏ thích";
         }
 
@@ -410,7 +408,34 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
             })),
         });
     } catch (error) {
-        next(error);
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+        });
+    }
+};
+
+export const getAllTags: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const allPosts = await Posts.find({}).lean();
+        const allTags = allPosts.flatMap((post) => post.tags);
+        const setTags = new Set<string>();
+        const uniqueTags = allTags
+            .filter((tag) => {
+                const lowerTag = tag.toLowerCase();
+                if (setTags.has(lowerTag)) {
+                    return false;
+                }
+                setTags.add(lowerTag);
+                return true;
+            })
+            .map((tag) => tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase());
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Lấy danh sách từ khóa thành công",
+            data: uniqueTags,
+        });
+    } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
