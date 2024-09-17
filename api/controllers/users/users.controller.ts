@@ -2,7 +2,6 @@ import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import bcryptjs from "bcryptjs";
 import Users from "../../models/users/user.model";
-import Posts from "../../models/post/post.model";
 import { IRequestStatus } from "../auth/auth.controller";
 
 export enum ISortDirection {
@@ -10,66 +9,43 @@ export enum ISortDirection {
     DESC = -1,
 }
 
-export const getAllUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
-    const page = parseInt(req.body.page as string) || 1;
-    const limit = parseInt(req.body.limit as string) || 9;
+//#region get all users data
 
-    const sortObject: Record<string, ISortDirection> = {};
-    if (!!req.params.sort) {
-        const sortInfo = (req.query.sort as string).split(" ");
-        for (let i = 0; i < sortInfo.length; i = i + 2) {
-            sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
-        }
-    }
-
-    const filterObject: Record<string, string | null | Object> = {};
-    if (!!req.query.filter) {
-        const filterInfo = (req.query.filter as string).split(" ");
-        for (let i = 0; i < filterInfo.length; i = i + 2) {
-            filterObject[filterInfo[i]] = filterInfo[i + 1];
-        }
-    }
-
-    const searchText = req.body.search;
-    if (searchText) {
-        filterObject["displayName"] = { $regex: searchText, $options: "i" };
-    }
+export const getAllUsers: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const allUsers = await Users.find(filterObject)
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .sort(sortObject)
-            .select("-password")
-            .lean()
-            .exec();
+        const allUsers = await Users.find().select("-password").lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.All.User",
             data: allUsers,
         });
-    } catch (error: any) {
+    } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Thất bại",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get total count of users
 
 export const getTotalUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const totalUsers = await Users.countDocuments({});
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.All.User",
             data: totalUsers,
         });
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Thất bại",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get user by id
 
 export const getUserById: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -77,12 +53,12 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
         if (!user) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
-                message: "Không tìm thấy người dùng",
+                message: "Error.User.Not.Found",
             });
         }
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.Single.User",
             data: {
                 ...user,
             },
@@ -90,17 +66,36 @@ export const getUserById: RequestHandler = async (req: Request, res: Response, n
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Thất bại",
+            message: "Error.Network",
         });
     }
 };
+
+//#region update user info
 
 export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
         return res.status(403).send({
             requestStatus: IRequestStatus.Error,
-            message: "Bạn không có quyền cập nhật thông tin người dùng này",
+            message: "Error.User.Not.Allowed.Access",
         });
+    }
+
+    if (req.body.displayName) {
+        if (req.body.displayName.length <= 3 || req.body.displayName.length > 14) {
+            return res.status(400).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "displayName",
+                message: "Error.Min.Max.Length.DisplayName",
+            });
+        }
+        if (req.body.displayName.includes(" ") || !req.body.displayName.match(/^[a-zA-Z0-9]+$/)) {
+            return res.status(400).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "displayName",
+                message: "Error.Not.Allowed.Special.Character.DisplayName",
+            });
+        }
     }
 
     if (req.body.email) {
@@ -110,45 +105,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "email",
-                message: "Định dạng email không hợp lệ",
-            });
-        }
-    }
-
-    if (req.body.password) {
-        if (req.body.password.length < 6) {
-            return res.status(400).send({
-                requestStatus: IRequestStatus.Error,
-                fieldError: "password",
-                message: "Mật khẩu cần có ít nhất 6 ký tự",
-            });
-        }
-        req.body.password = bcryptjs.hashSync(req.body.password, 13);
-    }
-
-    if (req.body.displayName) {
-        if (req.body.displayName.length <= 3 || req.body.displayName.length > 14) {
-            return res.status(400).send({
-                requestStatus: IRequestStatus.Error,
-                fieldError: "displayName",
-                message: "Tên hiển thị cần ít nhất 4 ký tự và tối đa 14 ký tự",
-            });
-        }
-        if (req.body.displayName.includes(" ") || !req.body.displayName.match(/^[a-zA-Z0-9]+$/)) {
-            return res.status(400).send({
-                requestStatus: IRequestStatus.Error,
-                fieldError: "displayName",
-                message: "Tên hiển thị không được chứa ký tự đặc biệt",
-            });
-        }
-    }
-
-    if (req.body.phoneNumber) {
-        if (!req.body.phoneNumber.match(/^0\d{9}$/)) {
-            return res.status(400).send({
-                requestStatus: IRequestStatus.Error,
-                fieldError: "phoneNumber",
-                message: "Định dạng số điện thoại không hợp lệ",
+                message: "Error.Invalid.Email.Format",
             });
         }
     }
@@ -160,8 +117,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
                 $set: {
                     email: req.body.email,
                     displayName: req.body.displayName,
-                    phoneNumber: req.body.phoneNumber,
-                    password: req.body.password,
+                    avatar: req.body.avatar,
                 },
             },
             { new: true }
@@ -171,41 +127,121 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
         if (!updatedUser) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
-                message: "Người dùng không tồn tại"
+                message: "Error.User.Not.Found",
             });
         }
         const { password, ...rest } = updatedUser;
         res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Cập nhật thông tin người dùng thành công",
+            message: "Successful.Update.User.Info",
             data: rest,
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
+            message: "Error.Network",
         });
     }
 };
 
-export const deleteSingleUser: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.params;
-    try {
-        await Users.findByIdAndDelete(userId).exec();
-        await Posts.deleteMany({ author: userId });
-        const remainingUsers = await Users.find({}).select("-password").lean();
-        return res.status(200).send({
-            requestStatus: IRequestStatus.Success,
-            message: "Xóa người dùng thành công",
-            data: remainingUsers,
+//#region update password user
+
+export const updatePassword: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const { currentPassword, newPassword } = req.body;
+    if (req.user?.id !== req.params.userId) {
+        return res.status(403).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Error.User.Not.Allowed.Access",
         });
-    } catch (error: any) {
+    }
+
+    const validUser = await Users.findById(req.user?.id).lean();
+    if (!validUser) {
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "email",
+            message: "Error.User.Not.Found",
+        });
+    }
+
+    const validPassword = bcryptjs.compareSync(currentPassword, validUser.password);
+    if (!validPassword) {
+        return res.status(400).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "currentPassword",
+            message: "Error.Incorrect.Password",
+        });
+    }
+
+    if (newPassword) {
+        if (newPassword.length < 6) {
+            return res.status(400).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "newPassword",
+                message: "Error.Min.Length.Password",
+            });
+        }
+    }
+
+    req.body.newPassword = bcryptjs.hashSync(req.body.newPassword, 13);
+
+    try {
+        const updatedUser = await Users.findByIdAndUpdate(
+            req.params.userId,
+            {
+                $set: {
+                    password: req.body.newPassword,
+                },
+            },
+            { new: true }
+        )
+            .lean()
+            .exec();
+        if (!updatedUser) {
+            return res.status(404).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Error.User.Not.Found",
+            });
+        }
+        res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Successful.Update.Password",
+        });
+    } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region update user status
+
+export const adminUpdateUserStatus: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.params.userId;
+    const status = req.body.status;
+
+    if (!status) {
+        return res.status(400).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Vui lòng lựa chọn trạng thái người dùng",
+        });
+    }
+
+    try {
+        await Users.findByIdAndUpdate(userId, { $set: { status } }, { new: true }).exec();
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Error.User.Choose.Status",
+        });
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Error.Network",
+        });
+    }
+};
+
 
 export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const userIds: string[] = req.body.userIds;
@@ -214,27 +250,13 @@ export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Res
         const remainingUsers = await Users.find({}).select("-password").lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: `Xóa ${userIds.length} người thành công`,
+            message: "Successful.Delete.User",
             data: remainingUsers,
         });
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
-        });
-    }
-};
-
-export const userLogout: RequestHandler = (_req: Request, res: Response, next: NextFunction) => {
-    try {
-        return res.clearCookie("access_token").status(200).json({
-            requestStatus: IRequestStatus.Success,
-            message: `Đăng xuất thành công`,
-        });
-    } catch (error: any) {
-        return res.status(500).send({
-            requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng thử lại trong giây lát",
+            message: "Error.Network",
         });
     }
 };

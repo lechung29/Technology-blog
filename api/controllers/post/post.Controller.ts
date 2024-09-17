@@ -1,11 +1,15 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import Posts from "../../models/post/post.model";
-import Users from "../../models/users/user.model";
-import { getSlug } from "../../utils/utils";
+import Users, { defaultAvatar } from "../../models/users/user.model";
+import { getMonth, getSlug } from "../../utils/utils";
 import { ISortDirection } from "../users/users.controller";
 import { IRequestStatus } from "../auth/auth.controller";
 import Comments from "../../models/comment/comment.model";
+import Favorites from "../../models/favorite/favorite.model";
+import mongoose from "mongoose";
+
+//#region create a post
 
 export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -14,7 +18,7 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "title",
-                message: "Tiêu đề đã tồn tại",
+                message: "Error.Post.Title.Existed",
             });
         }
 
@@ -31,7 +35,7 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
             .lean();
         return res.status(201).send({
             requestStatus: IRequestStatus.Success,
-            message: "Tạo bài viết thành công",
+            message: "Successful.Create.Post",
             data: {
                 ...formattedPost,
             },
@@ -39,26 +43,30 @@ export const createNewPost: RequestHandler = async (req: AuthenticatedRequest, r
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get all post not filter
 
 export const getAllPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const allPosts = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.Post",
             data: allPosts,
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get filter post
 
 export const getFilterPosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const page = parseInt(req.query.page as string) || 1;
@@ -70,6 +78,8 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
         for (let i = 0; i < sortInfo.length; i = i + 2) {
             if (sortInfo[i] === "like") {
                 sortObject["totalLikes"] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
+            } else if (sortInfo[i] === "comment") {
+                sortObject["totalComments"] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
             } else {
                 sortObject[sortInfo[i]] = sortInfo[i + 1] === "asc" ? ISortDirection.ASC : ISortDirection.DESC;
             }
@@ -127,14 +137,21 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
             .lean()
             .exec();
 
+        const postId = posts.map((post) => post._id);
+
+        const allFavorite = await Favorites.find({ post: { $in: postId } })
+            .lean()
+            .exec();
+
         const allPostComments = await Comments.find().populate({ path: "commentator", select: "displayName email avatar" }).lean();
 
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.Post",
             data: posts.map((post) => {
                 return {
                     ...post,
+                    totalFavorites: allFavorite.filter((item) => item.post.toString() === post._id.toString()).length,
                     comments: allPostComments.filter((comment) => comment.post.toString() === post._id.toString()),
                 };
             }),
@@ -142,29 +159,34 @@ export const getFilterPosts: RequestHandler = async (req: Request, res: Response
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get single post
 
 export const getSinglePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const postId = req.params.postId;
     const userId = req.params.userId;
     try {
         const post = await Posts.findById(postId).populate({ path: "author", select: "displayName email avatar" }).lean();
+        const favorites = await Favorites.find({ post: postId }).lean();
+        const isAddFavorite = favorites.find((item) => item.user.toString() === userId);
         const allPostComments = await Comments.find({ post: postId }).populate({ path: "commentator", select: "displayName email avatar" }).lean();
         if (!post) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
-                message: "Bài viết không tồn tại",
+                message: "Error.Post.Not.Found",
             });
         } else {
             return res.status(200).send({
                 requestStatus: IRequestStatus.Success,
-                message: "Thành công",
+                message: "Successful.Get.Post",
                 data: {
                     ...post,
                     isLike: post.like.includes(userId),
+                    isFavorite: !!isAddFavorite,
                     comments: allPostComments.map((comment) => {
                         return {
                             ...comment,
@@ -178,10 +200,12 @@ export const getSinglePost: RequestHandler = async (req: AuthenticatedRequest, r
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
             serverError: error.message,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get max page of post category with filter
 
 export const getMaxPages: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const limit = parseInt(req.query.limit as string) || 9;
@@ -233,30 +257,33 @@ export const getMaxPages: RequestHandler = async (req: Request, res: Response, n
 
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.MaxPage",
             data: maxPages,
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region user delete post
 
 export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
         return res.status(404).send({
             requestStatus: IRequestStatus.Error,
-            message: "Bạn không có quyền xóa bài viết này",
+            message: "Error.Post.Not.Allowed.Delete",
         });
     }
     try {
-        await Posts.findByIdAndDelete(req.params.postId);
-        const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
+        await Comments.deleteMany({ post: req.params.postId }).exec();
+        await Posts.findByIdAndDelete(req.params.postId).exec();
+        const allPostsLast = await Posts.find({ author: req.user?.id }).populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Xóa thành công",
+            message: "Successful.Delete.Post",
             data: allPostsLast.map((post) => ({
                 ...post,
             })),
@@ -264,19 +291,22 @@ export const userSingleDeletePost: RequestHandler = async (req: AuthenticatedReq
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region admin delete a post
 
 export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const postId = req.params.postId;
     try {
+        await Comments.deleteMany({ post: postId }).exec();
         await Posts.findByIdAndDelete(postId);
         const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Xóa thành công",
+            message: "Successful.Delete.Post",
             data: allPostsLast.map((post) => ({
                 ...post,
             })),
@@ -284,19 +314,22 @@ export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Resp
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
 
+//#region admin delete multi post
+
 export const multipleDeletePosts: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const postIds: string[] = req.body.postIds;
     try {
-        await Posts.deleteMany({ _id: { $in: postIds } });
+        await Comments.deleteMany({ post: { $in: postIds } }).exec();
+        await Posts.deleteMany({ _id: { $in: postIds } }).exec();
         const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: `Xóa ${postIds.length} bài viết thành công`,
+            message: "Successful.Delete.Post",
             data: allPostsLast.map((post) => ({
                 ...post,
             })),
@@ -304,16 +337,18 @@ export const multipleDeletePosts: RequestHandler = async (req: Request, res: Res
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region user update post
 
 export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (req.user?.id !== req.params.userId) {
         return res.status(404).send({
             requestStatus: IRequestStatus.Error,
-            message: "Bạn không có quyền cập nhật bài viết này",
+            message: "Error.Post.Not.Allowed",
         });
     }
 
@@ -336,7 +371,7 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
             .lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Cập nhật bài viết thành công",
+            message: "Successful.Update.Post",
             data: {
                 ...formattedPost,
             },
@@ -344,10 +379,12 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region like post
 
 export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -355,7 +392,7 @@ export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: R
         if (!post) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
-                message: "Bài viết không tồn tại",
+                message: "Error.Post.Not.Found",
             });
         }
 
@@ -365,11 +402,11 @@ export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: R
         if (userIndex === -1) {
             post.like.push(req.user?.id);
             post.totalLikes += 1;
-            message = "Đã thích bài viết";
+            message = "Successful.Like.Post";
         } else {
             post.like.splice(userIndex, 1);
             post.totalLikes -= 1;
-            message = "Bỏ thích";
+            message = "Successful.Dislike.Post";
         }
 
         await post.save();
@@ -380,11 +417,12 @@ export const likePost: RequestHandler = async (req: AuthenticatedRequest, res: R
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
-            // message: error.message
+            message: "Error.Network",
         });
     }
 };
+
+//#region admin update status post
 
 export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const postId = req.params.postId;
@@ -393,7 +431,7 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
     if (!status) {
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
-            message: "Vui lòng lựa chọn trạng thái bài viết",
+            message: "Error.Post.Choose.Status",
         });
     }
 
@@ -402,7 +440,7 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
         const allPosts = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Cập nhật trạng thái bài viết thành công",
+            message: "Successful.Update.Post",
             data: allPosts.map((post) => ({
                 ...post,
             })),
@@ -410,10 +448,12 @@ export const adminUpdateStatusPost: RequestHandler = async (req: AuthenticatedRe
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get all tags
 
 export const getAllTags: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -432,13 +472,128 @@ export const getAllTags: RequestHandler = async (req: Request, res: Response, ne
             .map((tag) => tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase());
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Lấy danh sách từ khóa thành công",
+            message: "Successful.Get.Post.TagList",
             data: uniqueTags,
         });
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
+        });
+    }
+};
+
+//#region get user overview
+
+export const getOverViewUser: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const { userId } = req.params;
+
+    if (req.user?.id !== userId) {
+        return res.status(404).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Error.Post.Not.Allowed",
+        });
+    }
+
+    const currentYear = new Date().getFullYear();
+    try {
+        //#region get total of user's posts
+        const postCount = await Posts.countDocuments({ author: userId });
+
+        //#region get total like of user's posts
+        const allUserPosts = await Posts.find({ author: userId }).lean()
+        const totalLikes = allUserPosts.reduce((sum, post) => sum + post.totalLikes, 0);
+
+        //#region get total post of user in current month
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const endOfMonth = new Date();
+        endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+        endOfMonth.setDate(1);
+        endOfMonth.setHours(0, 0, 0, 0);
+
+        const postCountByCurrentMonth = await Posts.countDocuments({
+            author: userId,
+            createdAt: {
+                $gte: startOfMonth,
+                $lt: endOfMonth,
+            },
+        });
+
+        //#region get post count by month of current year
+        const postCountsByMonth = await Posts.aggregate([
+            {
+                $match: {
+                    author: new mongoose.Types.ObjectId(userId),
+                    createdAt: {
+                        $gte: new Date(currentYear, 0, 1),
+                        $lt: new Date(currentYear + 1, 0, 1),
+                    },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$createdAt" },
+                        year: { $year: "$createdAt" },
+                    },
+                    post: { $sum: 1 },
+                },
+            },
+            {
+                $sort: { "_id.month": 1 },
+            },
+        ]);
+
+        const postByMonth = Array.from({ length: 12 }, (_, index) => {
+            const monthData = postCountsByMonth.find((item) => item._id.month === index + 1);
+            return { month: getMonth(index + 1), post: monthData ? monthData.post : 0 };
+        });
+
+
+
+        //#region get post count by category
+
+        const postCountsByCategory = await Posts.aggregate([
+            {
+                $match: {
+                    author: new mongoose.Types.ObjectId(userId), 
+                },
+            },
+            {
+                $group: {
+                    _id: "$category",
+                    postCount: { $sum: 1 },
+                },
+            },
+            {
+                $sort: { postCount: -1 },
+            },
+        ]);
+
+        const formattedPostCountsByCategory = postCountsByCategory.map((post, key) => ({
+            id: key,
+            value: post.postCount,
+            label: post._id
+        }))
+
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Successful.Get.Post.Data",
+            data: {
+                totalPosts: postCount,
+                postInCurrentMonth: postCountByCurrentMonth,
+                totalLikes: totalLikes,
+                postByMonth: postByMonth,
+                postByCategory: formattedPostCountsByCategory
+            }
+        })
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
+            message: "Error.Network",
         });
     }
 };

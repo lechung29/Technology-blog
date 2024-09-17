@@ -1,6 +1,5 @@
 import mongoose, { Document } from "mongoose";
 import { IUserInfo } from "../users/user.model";
-import { IComment } from "../comment/comment.model";
 
 export enum PostState {
     Public = "Public",
@@ -8,9 +7,7 @@ export enum PostState {
     Hide = "Hide",
 }
 
-export enum PostType {
-    
-}
+export enum PostType {}
 
 export interface IPost extends Document {
     title: string;
@@ -23,6 +20,7 @@ export interface IPost extends Document {
     status: PostState;
     like: Array<string>;
     totalLikes: number;
+    totalComments: number;
 }
 
 const postSchema = new mongoose.Schema<IPost>(
@@ -45,7 +43,7 @@ const postSchema = new mongoose.Schema<IPost>(
             {
                 type: String,
                 required: true,
-            }
+            },
         ],
         thumbnail: {
             type: String,
@@ -55,10 +53,10 @@ const postSchema = new mongoose.Schema<IPost>(
             type: String,
             required: true,
         },
-        author: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: "Users", 
-            required: true 
+        author: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Users",
+            required: true,
         },
         status: {
             type: String,
@@ -69,13 +67,17 @@ const postSchema = new mongoose.Schema<IPost>(
         like: [
             {
                 type: String,
-                default: []
-            }
+                default: [],
+            },
         ],
         totalLikes: {
             type: Number,
             default: 0,
-        }
+        },
+        totalComments: {
+            type: Number,
+            default: 0,
+        },
     },
     { timestamps: true }
 );

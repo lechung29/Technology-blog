@@ -2,6 +2,9 @@ import { NextFunction, Request, RequestHandler, Response } from "express";
 import { AuthenticatedRequest } from "../../middlewares/verifyUser";
 import Comments from "../../models/comment/comment.model";
 import { IRequestStatus } from "../auth/auth.controller";
+import Posts from "../../models/post/post.model";
+
+//#region create a comment
 
 export const createNewComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { content, post, commentator } = req.body;
@@ -10,18 +13,29 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
     if (commentator !== req.user?.id) {
         return res.status(403).send({
             requestStatus: IRequestStatus.Error,
-            message: "Bạn không có quyền bình luận bài viết này",
+            message: "Error.Comment.Not.Allowed",
         });
     }
 
     if (!content) {
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
-            message: "Nội dung bình luận không được để trống",
+            message: "Error.Comment.Not.Blank",
         });
     }
 
     try {
+
+        const updatedPost = await Posts.findById(post)
+
+        if (!updatedPost) {
+            return res.status(404).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Error.Post.Not.Found",
+            });
+        }
+        updatedPost.totalComments += 1
+
         const newComment = new Comments({
             content,
             post,
@@ -29,18 +43,21 @@ export const createNewComment: RequestHandler = async (req: AuthenticatedRequest
         });
 
         await newComment.save();
+        await updatedPost.save();
 
         return res.status(201).send({
             requestStatus: IRequestStatus.Success,
-            message: "Bình luận thành công",
+            message: "Successful.Submit.Comment",
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region get all comments by post id
 
 export const getAllCommentsByPostId: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { postId } = req.params;
@@ -50,16 +67,18 @@ export const getAllCommentsByPostId: RequestHandler = async (req: AuthenticatedR
         const allPostComments = await Comments.find({ post: postId }).populate({ path: "commentator", select: "displayName email" }).skip(skip).limit(limit).sort({ createAt: -1 }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Thành công",
+            message: "Successful.Get.Comment",
             comments: allPostComments,
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region update comment
 
 export const updateComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { content, commentator } = req.body;
@@ -67,7 +86,7 @@ export const updateComment: RequestHandler = async (req: AuthenticatedRequest, r
     if (commentator !== req.user?.id) {
         return res.status(403).send({
             requestStatus: IRequestStatus.Error,
-            message: "Bạn không có quyền cập nhật bình luận này",
+            message: "Error.Comment.Not.Allowed.Update",
         });
     }
 
@@ -75,15 +94,17 @@ export const updateComment: RequestHandler = async (req: AuthenticatedRequest, r
         await Comments.findByIdAndUpdate(commentId, { $set: { content: content } }, { new: true });
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Đã cập nhật bình luận thành công",
+            message: "Successful.Update.Comment",
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region delete comment
 
 export const deleteComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { commentator } = req.body;
@@ -91,23 +112,43 @@ export const deleteComment: RequestHandler = async (req: AuthenticatedRequest, r
     if (commentator !== req.user?.id) {
         return res.status(200).send({
             requestStatus: IRequestStatus.Error,
-            message: "Bạn không có quyền xóa bình luận này",
+            message: "Error.Comment.Not.Allowed.Delete",
         });
     }
 
     try {
+        const comment = await Comments.findById(commentId)
+        if (!comment) {
+            return res.status(404).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Error.Comment.Not.Found",
+            });
+        }
+        const post = await Posts.findById(comment.post.toString())
+        if (!post) {
+            return res.status(404).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Error.Post.Not.Found",
+            });
+        }
         await Comments.findByIdAndDelete(commentId).exec();
+
+        post.totalComments -= 1;
+        await post.save();
+
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Đã xóa bình luận thành công",
+            message: "Successful.Delete.Comment",
         });
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region like comment
 
 export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -115,7 +156,7 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
         if (!comment) {
             return res.status(404).send({
                 requestStatus: IRequestStatus.Error,
-                message: "Bình luận không tồn tại",
+                message: "Error.Comment.Not.Found",
             });
         }
 
@@ -124,10 +165,10 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
 
         if (userIndex === -1) {
             comment.like.push(req.user?.id);
-            message = "Đã thích bình luận";
+            message = "Successful.Like.Comment";
         } else {
             comment.like.splice(userIndex, 1);
-            message = "Bỏ thích";
+            message = "Successful.Dislike.Comment";
         }
 
         await comment.save();
@@ -138,7 +179,7 @@ export const likeComment: RequestHandler = async (req: AuthenticatedRequest, res
     } catch (error) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };

@@ -1,5 +1,5 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
-import Users, { IUserData, IUserInfo, userRole } from "../../models/users/user.model";
+import Users, { IUserData, IUserInfo, userRole, userStatus } from "../../models/users/user.model";
 import bcryptjs from "bcryptjs";
 import { errorHandler } from "../../utils/ErrorHandle";
 import jwt from "jsonwebtoken";
@@ -10,14 +10,20 @@ export enum IRequestStatus {
     Info,
 }
 
-export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<IUserData, "email" | "displayName" | "password">>, res: Response, next: NextFunction) => {
+//#region register user
+
+export const registerNewUser: RequestHandler = async (
+    req: Request<{}, {}, Pick<IUserData, "email" | "displayName" | "password">>,
+    res: Response,
+    next: NextFunction
+) => {
     const { displayName, email, password } = req.body;
 
     if (!email) {
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
-            message: "Tài khoản email là bắt buộc",
+            message: "Error.Required.Email",
         });
     }
 
@@ -25,7 +31,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "password",
-            message: "Mật khẩu là bắt buộc",
+            message: "Error.Required.Password",
         });
     }
 
@@ -33,7 +39,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "displayName",
-            message: "Tên hiển thị là bắt buộc",
+            message: "Error.Required.DisplayName",
         });
     }
 
@@ -44,7 +50,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
             return res.status(200).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "email",
-                message: "Định dạng email không hợp lệ",
+                message: "Error.Invalid.Format.Email",
             });
         }
     }
@@ -54,7 +60,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "password",
-                message: "Mật khẩu cần có ít nhất 6 ký tự",
+                message: "Error.Min.Length.Password",
             });
         }
         req.body.password = bcryptjs.hashSync(password, 13);
@@ -65,14 +71,14 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
-                message: "Tên hiển thị cần ít nhất 4 ký tự và tối đa 14 ký tự",
+                message: "Error.Min.Max.Length.DisplayName",
             });
         }
-        if (displayName.includes(" ") || !displayName.match(/^[a-zA-Z0-9]+$/)) {
+        if (!displayName.match(/^[a-zA-Z0-9]+$/)) {
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
-                message: "Tên hiển thị không được chứa ký tự đặc biệt",
+                message: "Error.Not.Allowed.Special.Character.DisplayName",
             });
         }
     }
@@ -83,7 +89,7 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
         return res.status(200).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
-            message: "Tài khoản email đã tồn tại",
+            message: "Error.Existed.Email",
         });
     }
     const newUser = new Users({
@@ -96,15 +102,17 @@ export const registerNewUser: RequestHandler = async (req: Request<{}, {}, Pick<
         await newUser.save();
         return res.status(201).send({
             requestStatus: IRequestStatus.Success,
-            message: "Đăng ký người dùng mới thành công",
+            message: "Successful.SignUp.User",
         });
     } catch (error: any) {
         return res.status(500).send({
             requestStatus: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
+
+//#region login user
 
 export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserData, "email" | "password">>, res: Response, next: NextFunction) => {
     const { email, password } = req.body;
@@ -113,15 +121,15 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
-            message: "Tài khoản email là bắt buộc",
-        });;
+            message: "Error.Required.Email",
+        });
     }
 
     if (!password) {
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "password",
-            message: "Mật khẩu là bắt buộc",
+            message: "Error.Required.Password",
         });
     }
 
@@ -132,7 +140,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "email",
-                message: "Định dạng email không hợp lệ",
+                message: "Error.Invalid.Format.Email",
             });
         }
     }
@@ -142,7 +150,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "password",
-                message: "Mật khẩu cần có ít nhất 6 ký tự",
+                message: "Error.Min.Length.Password",
             });
         }
     }
@@ -152,7 +160,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         return res.status(200).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
-            message: "Tài khoản email không tồn tại",
+            message: "Error.Existed.Email",
         });
     }
 
@@ -161,7 +169,15 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "password",
-            message: "Mật khẩu không đúng",
+            message: "Error.Incorrect.Password",
+        });
+    }
+
+    if (validUser.status === userStatus.inactive) {
+        return res.status(403).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "email",
+            message: "Error.Account.Locked",
         });
     }
 
@@ -170,65 +186,77 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
     }
 
     try {
-        const accessToken = jwt.sign({id: validUser?._id}, process.env.JWT_SECRET);
-        const {password, ...rest} = validUser!;
-        return res.status(201).cookie("access_token", accessToken, { httpOnly: true, secure: false, sameSite: "strict" }).send({
+        const accessToken = jwt.sign({ id: validUser?._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+        const { password, ...rest } = validUser!;
+        return res.status(201).send({
             requestStatus: IRequestStatus.Success,
-            message: "Đăng nhập thành công",
+            message: "Successful.SignIn.User",
             data: {
                 ...rest,
                 accessToken: accessToken,
-            }
+            },
         });
     } catch (error: any) {
         return res.status(500).send({
             success: IRequestStatus.Error,
-            message: "Có lỗi mạng xảy ra, vui lòng chờ đợi trong giây lát",
+            message: "Error.Network",
         });
     }
 };
 
+//#region login with google
+
 export const googleAuth: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
-    const { email, displayName, avatar} = req.body;
+    const { email, displayName, avatar } = req.body;
     try {
-        const user = await Users.findOne({email}).lean();
+        const user = await Users.findOne({ email }).lean();
         if (!process.env.JWT_SECRET) {
             throw new Error("Token cannot be defined");
         }
         if (user) {
-            const token = jwt.sign({id: user._id}, process.env.JWT_SECRET, { expiresIn: "1d" });
-            const {password, ...rest} = user; 
-            return res.status(200).cookie("access_token", token, { httpOnly: true }).send({
+            if (user.status === userStatus.inactive) {
+                return res.status(401).send({
+                    requestStatus: IRequestStatus.Error,
+                    fieldError: "email",
+                    message: "Error.Account.Locked",
+                });
+            }
+            const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+            const { password, ...rest } = user;
+            return res.status(200).send({
                 requestStatus: IRequestStatus.Success,
-                message: "Đăng nhập thành công",
-                data: rest,
+                message: "Successful.SignIn.User",
+                data: {
+                    ...rest,
+                    accessToken: accessToken,
+                },
             });
         } else {
-            const generatedPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
-            const hashedPassword = bcryptjs.hashSync(generatedPassword, 10)
+            const generatedPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+            const hashedPassword = bcryptjs.hashSync(generatedPassword, 10);
             const newUser = new Users({
                 displayName: displayName.toLowerCase().split(" ").join(""),
                 email: email,
                 password: hashedPassword,
                 avatar: avatar,
-            })
+            });
             await newUser.save();
-            const currentUser = await Users.findById((newUser._id as any).toString()).lean()
-            const accessToken = jwt.sign({id: currentUser?._id}, process.env.JWT_SECRET);
-            const {password, ...rest} = currentUser!;
-            return res.status(201).cookie("access_token", accessToken, { httpOnly: true, secure: false, sameSite: "strict" }).send({
+            const currentUser = await Users.findById((newUser._id as any).toString()).lean();
+            const accessToken = jwt.sign({ id: currentUser?._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+            const { password, ...rest } = currentUser!;
+            return res.status(201).send({
                 requestStatus: IRequestStatus.Success,
-                message: "Đăng nhập thành công",
+                message: "Successful.SignIn.User",
                 data: {
                     ...rest,
                     accessToken: accessToken,
-                }
+                },
             });
         }
     } catch (error) {
         return res.status(500).send({
             success: IRequestStatus.Error,
-            message: "Có lỗi khi đăng nhập bằng Google, vui lòng chờ đợi trong giây lát",
+            message: "Error.Google",
         });
     }
-} 
+};

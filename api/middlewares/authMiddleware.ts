@@ -4,21 +4,12 @@ import { Request, Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "./verifyUser";
 
 export const isAdmin = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-        const admin = await Users.findById(req.user?.id)
-        if (admin?.role !== "admin") {
-            return res.status(401).send({
-                success: false,
-                message: "Bạn không có quyền thực hiện chức năng này",
-            })
-        } else {
-            next()
-        }
-    } catch (error: any) {
-        next(error);
+    const admin = await Users.findById(req.user?.id);
+    if (admin?.role !== "admin") {
         return res.status(401).send({
             success: false,
-            message: error.message,
-        })
+            message: "Error.Not.Have.Permission",
+        });
     }
-}
+    next();
+};

@@ -10,6 +10,11 @@ export enum userGender {
     female = "female",
 }
 
+export enum userStatus {
+    active = "active",
+    inactive = "locked",
+}
+
 export type IUserInfo = Omit<IUserData, "password">;
 
 export interface IUserData extends Document {
@@ -20,7 +25,10 @@ export interface IUserData extends Document {
     avatar: string;
     gender: userGender;
     role: userRole;
+    status: userStatus;
 }
+
+export const defaultAvatar: string = "https://www.pngkey.com/png/full/115-1150420_avatar-png-pic-male-avatar-icon-png.png"
 
 const userSchema = new mongoose.Schema<IUserData>(
     {
@@ -46,10 +54,16 @@ const userSchema = new mongoose.Schema<IUserData>(
             required: false,
             enum: Object.values(userGender),
         },
+        status: {
+            type: String,
+            required: true,
+            default: userStatus.active,
+            enum: Object.values(userStatus),
+        },
         avatar: {
             type: String,
             required: false,
-            default: "https://www.pngkey.com/png/full/115-1150420_avatar-png-pic-male-avatar-icon-png.png",
+            default: defaultAvatar,
         },
         role: {
             type: String,

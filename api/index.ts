@@ -5,8 +5,9 @@ import cookieParser from "cookie-parser"
 import { connectDB } from './config/database/database';
 import authRouter from './router/auth/auth.route';
 import userRouter from './router/users/user.route';
-import postRoute from './router/post/post.route';
-import commentRoute from './router/comment/comment.route';
+import postRouter from './router/post/post.route';
+import commentRouter from './router/comment/comment.route';
+import favoriteRouter from './router/favorite/favorite.route';
 
 
 const app = express();
@@ -26,8 +27,9 @@ connectDB()
 //Router 
 app.use('/api/v1/auth/', authRouter);
 app.use('/api/v1/user/', userRouter)
-app.use('/api/v1/post/', postRoute)
-app.use('/api/v1/comment/', commentRoute)
+app.use('/api/v1/post/', postRouter)
+app.use('/api/v1/comment/', commentRouter)
+app.use('/api/v1/favorite/', favoriteRouter)
 
 
 app.listen(port, () => {
