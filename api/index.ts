@@ -8,6 +8,7 @@ import userRouter from './router/users/user.route';
 import postRouter from './router/post/post.route';
 import commentRouter from './router/comment/comment.route';
 import favoriteRouter from './router/favorite/favorite.route';
+import bodyParser from "body-parser"
 
 
 const app = express();
@@ -19,6 +20,8 @@ app.use(cors())
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Port
 const port =  8080;
