@@ -306,7 +306,7 @@ export const adminSingleDeletePost = async (req: AuthenticatedRequest, res: Resp
         const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Successful.Delete.Post",
+            message: "Delete.Post.Success",
             data: allPostsLast.map((post) => ({
                 ...post,
             })),
@@ -329,7 +329,7 @@ export const multipleDeletePosts: RequestHandler = async (req: Request, res: Res
         const allPostsLast = await Posts.find().populate({ path: "author", select: "displayName email" }).lean();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Successful.Delete.Post",
+            message: "Delete.Post.Success",
             data: allPostsLast.map((post) => ({
                 ...post,
             })),

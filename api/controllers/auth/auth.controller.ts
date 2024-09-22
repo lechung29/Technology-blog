@@ -160,7 +160,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         return res.status(200).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
-            message: "Error.Existed.Email",
+            message: "Error.User.Not.Found",
         });
     }
 

@@ -89,7 +89,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
                 message: "Error.Min.Max.Length.DisplayName",
             });
         }
-        if (req.body.displayName.includes(" ") || !req.body.displayName.match(/^[a-zA-Z0-9]+$/)) {
+        if (!req.body.displayName.match(/^[a-zA-Z0-9]+$/)) {
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "displayName",
@@ -108,7 +108,7 @@ export const updateUserInfo: RequestHandler = async (req: AuthenticatedRequest, 
                 message: "Error.Invalid.Email.Format",
             });
         }
-    }
+    } 
 
     try {
         const updatedUser = await Users.findByIdAndUpdate(
@@ -224,7 +224,7 @@ export const adminUpdateUserStatus: RequestHandler = async (req: AuthenticatedRe
     if (!status) {
         return res.status(400).send({
             requestStatus: IRequestStatus.Error,
-            message: "Vui lòng lựa chọn trạng thái người dùng",
+            message: "Error.User.Choose.Status",
         });
     }
 
@@ -232,7 +232,7 @@ export const adminUpdateUserStatus: RequestHandler = async (req: AuthenticatedRe
         await Users.findByIdAndUpdate(userId, { $set: { status } }, { new: true }).exec();
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
-            message: "Error.User.Choose.Status",
+            message: "Successful.Update.User.Status",
         });
     } catch (error) {
         return res.status(500).send({
@@ -241,7 +241,6 @@ export const adminUpdateUserStatus: RequestHandler = async (req: AuthenticatedRe
         });
     }
 };
-
 
 export const deleteMultipleUsers: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const userIds: string[] = req.body.userIds;
