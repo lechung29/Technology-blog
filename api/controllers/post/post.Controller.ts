@@ -353,6 +353,15 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
     }
 
     try {
+        const existingPost = await Posts.findOne({ title: req.body.title });
+        if (!!existingPost) {
+            return res.status(400).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "title",
+                message: "Error.Post.Title.Existed",
+            });
+        }
+
         const updatedPost = await Posts.findByIdAndUpdate(
             req.params.postId,
             {
@@ -361,6 +370,7 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
                     content: req.body.content,
                     category: req.body.category,
                     thumbnail: req.body.thumbnail,
+                    tags: req.body.tags,
                     slug: getSlug(req.body.title),
                 },
             },

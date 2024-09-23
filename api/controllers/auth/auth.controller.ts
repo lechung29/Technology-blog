@@ -3,6 +3,7 @@ import Users, { IUserData, IUserInfo, userRole, userStatus } from "../../models/
 import bcryptjs from "bcryptjs";
 import { errorHandler } from "../../utils/ErrorHandle";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 export enum IRequestStatus {
     Error,
@@ -257,6 +258,77 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
         return res.status(500).send({
             success: IRequestStatus.Error,
             message: "Error.Google",
+        });
+    }
+};
+
+export const sendOTP: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.body;
+
+    try {
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.MY_EMAIL,
+                pass: process.env.MY_PASSWORD,
+            },
+        });
+
+        const OTP = Math.floor(Math.random() * 9000 + 1000);
+
+        const mail_configs = {
+            from: process.env.MY_EMAIL,
+            to: email,
+            subject: "DEVBLOG PASSWORD RECOVERY",
+            html: `<!DOCTYPE html>
+      <html lang="en" >
+      <head>
+        <meta charset="UTF-8">
+        <title>Devblog - OTP Email Template</title>
+        
+      
+      </head>
+      <body>
+      <!-- partial:index.partial.html -->
+      <div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
+        <div style="margin:50px auto;width:70%;padding:20px 0">
+          <div style="border-bottom:1px solid #eee">
+            <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Devblog</a>
+          </div>
+          <p style="font-size:1.1em">Hi,</p>
+          <p>Thank you for choosing Koding 101. Use the following OTP to complete your Password Recovery Procedure. OTP is valid for 5 minutes</p>
+          <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${OTP}</h2>
+          <p style="font-size:0.9em;">Regards,<br />Koding 101</p>
+          <hr style="border:none;border-top:1px solid #eee" />
+          <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
+            <p>Koding 101 Inc</p>
+            <p>1600 Amphitheatre Parkway</p>
+            <p>California</p>
+          </div>
+        </div>
+      </div>
+      <!-- partial -->
+        
+      </body>
+      </html>`,
+        };
+
+        transporter.sendMail(mail_configs, function (error, info) {
+            if (error) {
+                return res.status(500).send({
+                    success: IRequestStatus.Error,
+                    message: "...",
+                });
+            }
+            return res.status(200).send({
+                success: IRequestStatus.Success,
+                message: "Thành công",
+            });
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: IRequestStatus.Error,
+            message: "Error.Network",
         });
     }
 };
