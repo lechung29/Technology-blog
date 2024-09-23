@@ -1,7 +1,5 @@
 import jwt from "jsonwebtoken";
-import { errorHandler } from "../utils/ErrorHandle";
 import { NextFunction, Request, Response } from "express";
-import { CustomError } from "../utils/CustomError";
 import Users, { IUserInfo, userStatus } from "../models/users/user.model";
 import { IRequestStatus } from "../controllers/auth/auth.controller";
 

@@ -1,7 +1,6 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import Users, { IUserData, IUserInfo, userRole, userStatus } from "../../models/users/user.model";
 import bcryptjs from "bcryptjs";
-import { errorHandler } from "../../utils/ErrorHandle";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 
