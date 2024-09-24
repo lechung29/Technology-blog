@@ -354,7 +354,7 @@ export const userUpdatePost: RequestHandler = async (req: AuthenticatedRequest, 
 
     try {
         const existingPost = await Posts.findOne({ title: req.body.title });
-        if (!!existingPost) {
+        if (!!existingPost && existingPost.id !== req.params.postId) {
             return res.status(400).send({
                 requestStatus: IRequestStatus.Error,
                 fieldError: "title",

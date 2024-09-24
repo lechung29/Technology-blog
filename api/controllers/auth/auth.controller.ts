@@ -3,6 +3,7 @@ import Users, { IUserData, IUserInfo, userRole, userStatus } from "../../models/
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import OTPs from "../../models/otp/otp.model";
 
 export enum IRequestStatus {
     Error,
@@ -261,8 +262,26 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
     }
 };
 
+//#region send otp
+
 export const sendOTP: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { email } = req.body;
+
+    const validUser = await Users.findOne({ email }).lean();
+    if (!validUser) {
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "email",
+            message: "Error.User.Not.Found",
+        });
+    }
+
+    const existingOtp = await OTPs.findOne({ userEmail: email }).lean();
+    if (existingOtp) {
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+        });
+    }
 
     try {
         const transporter = nodemailer.createTransport({
@@ -278,32 +297,19 @@ export const sendOTP: RequestHandler = async (req: Request, res: Response, next:
         const mail_configs = {
             from: process.env.MY_EMAIL,
             to: email,
-            subject: "DEVBLOG PASSWORD RECOVERY",
+            subject: "[NO-REPLY] DEVBLOG PASSWORD RECOVERY",
             html: `<!DOCTYPE html>
       <html lang="en" >
       <head>
         <meta charset="UTF-8">
         <title>Devblog - OTP Email Template</title>
-        
-      
       </head>
       <body>
       <!-- partial:index.partial.html -->
-      <div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
-        <div style="margin:50px auto;width:70%;padding:20px 0">
-          <div style="border-bottom:1px solid #eee">
-            <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Devblog</a>
-          </div>
-          <p style="font-size:1.1em">Hi,</p>
-          <p>Thank you for choosing Koding 101. Use the following OTP to complete your Password Recovery Procedure. OTP is valid for 5 minutes</p>
+      <div style="font-family: Helvetica,Arial,sans-serif;overflow:auto;line-height:2">
+        <div style="margin:15px auto;width:70%;padding:20px 0">
+          <p>Thank you for choosing Devblog. Use the following OTP to complete your Password Recovery Procedure. OTP is valid for 5 minutes</p>
           <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${OTP}</h2>
-          <p style="font-size:0.9em;">Regards,<br />Koding 101</p>
-          <hr style="border:none;border-top:1px solid #eee" />
-          <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
-            <p>Koding 101 Inc</p>
-            <p>1600 Amphitheatre Parkway</p>
-            <p>California</p>
-          </div>
         </div>
       </div>
       <!-- partial -->
@@ -312,21 +318,177 @@ export const sendOTP: RequestHandler = async (req: Request, res: Response, next:
       </html>`,
         };
 
-        transporter.sendMail(mail_configs, function (error, info) {
+        transporter.sendMail(mail_configs, async function (error, info) {
             if (error) {
                 return res.status(500).send({
                     success: IRequestStatus.Error,
-                    message: "...",
+                    message: "Error.Network",
                 });
             }
+            const newOtp = new OTPs({
+                otpCode: OTP,
+                userEmail: email,
+            });
+
+            await newOtp.save();
+
             return res.status(200).send({
                 success: IRequestStatus.Success,
-                message: "Thành công",
+                message: "Send.Otp.Successful",
             });
         });
     } catch (error) {
         return res.status(500).send({
             success: IRequestStatus.Error,
+            message: "Error.Network",
+        });
+    }
+};
+
+//#region resend otp
+
+export const resendOTP: RequestHandler = async (req: Request, res: Response) => {
+    const { email } = req.body;
+    try {
+        await OTPs.findOneAndDelete({ userEmail: email });
+        const OTP = Math.floor(Math.random() * 9000 + 1000);
+
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.MY_EMAIL,
+                pass: process.env.MY_PASSWORD,
+            },
+        });
+        const mail_configs = {
+            from: process.env.MY_EMAIL,
+            to: email,
+            subject: "[NO-REPLY] DEVBLOG PASSWORD RECOVERY",
+            html: `<!DOCTYPE html>
+      <html lang="en" >
+      <head>
+        <meta charset="UTF-8">
+        <title>Devblog - OTP Email Template</title>
+      </head>
+      <body>
+      <!-- partial:index.partial.html -->
+      <div style="font-family: Helvetica,Arial,sans-serif;overflow:auto;line-height:2">
+        <div style="margin:15px auto;width:70%;padding:20px 0">
+          <p>Thank you for choosing Devblog. Use the following OTP to complete your Password Recovery Procedure. OTP is valid for 5 minutes</p>
+          <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${OTP}</h2>
+        </div>
+      </div>
+      <!-- partial -->
+        
+      </body>
+      </html>`,
+        };
+
+        transporter.sendMail(mail_configs, async function (error, info) {
+            if (error) {
+                return res.status(500).send({
+                    success: IRequestStatus.Error,
+                    message: "Error.Network",
+                });
+            }
+            const newOtp = new OTPs({
+                otpCode: OTP,
+                userEmail: email,
+            });
+
+            await newOtp.save();
+
+            return res.status(200).send({
+                success: IRequestStatus.Success,
+                message: "Send.Otp.Successful",
+            });
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: IRequestStatus.Error,
+            message: "Error.Network",
+        });
+    }
+};
+
+//#region verify otp
+
+export const verifyOTP: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const { email, otp } = req.body;
+
+    try {
+        const validUser = await OTPs.findOne({ userEmail: email }).lean();
+        if (!validUser) {
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Expired.Otp",
+            });
+        }
+
+        if (validUser.otpCode !== otp) {
+            return res.status(200).send({
+                requestStatus: IRequestStatus.Error,
+                message: "Verify.Otp.Fails",
+            });
+        }
+
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Verify.Otp.Successful",
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: IRequestStatus.Error,
+            message: "Error.Network",
+        });
+    }
+};
+
+//#region reset password
+
+export const resetPassword: RequestHandler = async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+
+    const validUser = await Users.findOne({ email: email }).lean();
+    if (!validUser) {
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "email",
+            message: "Error.User.Not.Found",
+        });
+    }
+
+    if (password && password.length < 6) {
+        return res.status(400).send({
+            requestStatus: IRequestStatus.Error,
+            fieldError: "newPassword",
+            message: "Error.Min.Length.Password",
+        });
+    }
+
+    req.body.password = bcryptjs.hashSync(req.body.password, 13);
+
+    try {
+        await Users.findOneAndUpdate(
+            {
+                email: email,
+            },
+            {
+                $set: {
+                    password: req.body.password,
+                },
+            },
+            { new: true }
+        )
+            .lean()
+            .exec();
+        return res.status(200).send({
+            requestStatus: IRequestStatus.Success,
+            message: "Successful.Update.Password",
+        });
+    } catch (error) {
+        return res.status(500).send({
+            requestStatus: IRequestStatus.Error,
             message: "Error.Network",
         });
     }
