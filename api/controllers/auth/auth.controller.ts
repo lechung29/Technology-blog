@@ -267,6 +267,18 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
 export const sendOTP: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { email } = req.body;
 
+    if (email) {
+        const emailRegex =
+            /^(?:[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|(?:\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)$/;
+        if (!email.match(emailRegex)) {
+            return res.status(400).send({
+                requestStatus: IRequestStatus.Error,
+                fieldError: "email",
+                message: "Error.Invalid.Format.Email",
+            });
+        }
+    }
+
     const validUser = await Users.findOne({ email }).lean();
     if (!validUser) {
         return res.status(200).send({
@@ -280,6 +292,7 @@ export const sendOTP: RequestHandler = async (req: Request, res: Response, next:
     if (existingOtp) {
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
+            message: "Send.Otp.Successful",
         });
     }
 
@@ -417,15 +430,15 @@ export const verifyOTP: RequestHandler = async (req: Request, res: Response, nex
     const { email, otp } = req.body;
 
     try {
-        const validUser = await OTPs.findOne({ userEmail: email }).lean();
-        if (!validUser) {
+        const validOtp = await OTPs.findOne({ userEmail: email }).lean();
+        if (!validOtp) {
             return res.status(200).send({
                 requestStatus: IRequestStatus.Error,
                 message: "Expired.Otp",
             });
         }
 
-        if (validUser.otpCode !== otp) {
+        if (validOtp.otpCode !== otp) {
             return res.status(200).send({
                 requestStatus: IRequestStatus.Error,
                 message: "Verify.Otp.Fails",
@@ -482,6 +495,8 @@ export const resetPassword: RequestHandler = async (req: Request, res: Response)
         )
             .lean()
             .exec();
+        await OTPs.findOneAndDelete({ userEmail: email });
+        
         return res.status(200).send({
             requestStatus: IRequestStatus.Success,
             message: "Successful.Update.Password",
