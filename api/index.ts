@@ -17,7 +17,7 @@ dotenv.config();
 
 app.use(express.json());
 app.use(cors({
-    origin: "https://dev-blog-ui.vercel.app/"
+    origin: "https://dev-blog-ui.vercel.app"
 }))
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
