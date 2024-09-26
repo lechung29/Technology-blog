@@ -334,7 +334,7 @@ export const sendOTP: RequestHandler = async (req: Request, res: Response, next:
         transporter.sendMail(mail_configs, async function (error, info) {
             if (error) {
                 return res.status(500).send({
-                    success: IRequestStatus.Error,
+                    requestStatus: IRequestStatus.Error,
                     message: "Error.Network",
                 });
             }
@@ -346,13 +346,13 @@ export const sendOTP: RequestHandler = async (req: Request, res: Response, next:
             await newOtp.save();
 
             return res.status(200).send({
-                success: IRequestStatus.Success,
+                requestStatus: IRequestStatus.Success,
                 message: "Send.Otp.Successful",
             });
         });
     } catch (error) {
         return res.status(500).send({
-            success: IRequestStatus.Error,
+            requestStatus: IRequestStatus.Error,
             message: "Error.Network",
         });
     }
@@ -400,7 +400,7 @@ export const resendOTP: RequestHandler = async (req: Request, res: Response) => 
         transporter.sendMail(mail_configs, async function (error, info) {
             if (error) {
                 return res.status(500).send({
-                    success: IRequestStatus.Error,
+                    requestStatus: IRequestStatus.Error,
                     message: "Error.Network",
                 });
             }
@@ -412,13 +412,13 @@ export const resendOTP: RequestHandler = async (req: Request, res: Response) => 
             await newOtp.save();
 
             return res.status(200).send({
-                success: IRequestStatus.Success,
+                requestStatus: IRequestStatus.Success,
                 message: "Send.Otp.Successful",
             });
         });
     } catch (error) {
         return res.status(500).send({
-            success: IRequestStatus.Error,
+            requestStatus: IRequestStatus.Error,
             message: "Error.Network",
         });
     }
@@ -451,7 +451,7 @@ export const verifyOTP: RequestHandler = async (req: Request, res: Response, nex
         });
     } catch (error) {
         return res.status(500).send({
-            success: IRequestStatus.Error,
+            requestStatus: IRequestStatus.Error,
             message: "Error.Network",
         });
     }
