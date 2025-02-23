@@ -107,9 +107,8 @@ export const updateComment: RequestHandler = async (req: AuthenticatedRequest, r
 //#region delete comment
 
 export const deleteComment: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const { commentator } = req.body;
-    const { commentId } = req.params;
-    if (commentator !== req.user?.id) {
+    const { commentId, userId } = req.params;
+    if (userId !== req.user?.id) {
         return res.status(200).send({
             requestStatus: IRequestStatus.Error,
             message: "Error.Comment.Not.Allowed.Delete",

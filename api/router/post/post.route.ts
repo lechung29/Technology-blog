@@ -15,7 +15,7 @@ postRouter.put("/update-post/:postId/:userId", verifyToken, isLocked, userUpdate
 postRouter.put("/update-post/:postId", verifyToken, isLocked, isAdmin, adminUpdateStatusPost)
 postRouter.delete("/delete-post/:postId/:userId", verifyToken, isLocked, userSingleDeletePost)
 postRouter.delete("/delete-post/:postId", verifyToken, isLocked, isAdmin, adminSingleDeletePost)
-postRouter.delete("/multi-delete-post", verifyToken, isLocked, multipleDeletePosts)
+postRouter.post("/multi-delete-post", verifyToken, isLocked, multipleDeletePosts)
 postRouter.get("/get-all-tags", getAllTags)
 postRouter.get("/get-overview/:userId", verifyToken, isLocked, getOverViewUser)
 

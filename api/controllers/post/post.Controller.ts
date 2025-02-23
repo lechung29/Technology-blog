@@ -497,7 +497,7 @@ export const getAllTags: RequestHandler = async (req: Request, res: Response, ne
 
 export const getOverViewUser: RequestHandler = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const { userId } = req.params;
-
+    console.log(userId, "-", req.user?.id)
     if (req.user?.id !== userId) {
         return res.status(404).send({
             requestStatus: IRequestStatus.Error,

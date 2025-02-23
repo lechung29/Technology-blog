@@ -1,5 +1,6 @@
 import express from 'express';
-import { googleAuth, registerNewUser, resendOTP, resetPassword, sendOTP, userLogin, verifyOTP } from '../../controllers/auth/auth.controller';
+import { googleAuth, logout, refreshToken, registerNewUser, resendOTP, resetPassword, sendOTP, userLogin, verifyOTP } from '../../controllers/auth/auth.controller';
+import { verifyToken } from '../../middlewares/verifyUser';
 
 const authRouter = express.Router();
 
@@ -9,7 +10,11 @@ authRouter.post("/register", registerNewUser)
 // Login
 authRouter.post("/login", userLogin )
 
+authRouter.get("/refresh-token", refreshToken)
+
 authRouter.post("/google", googleAuth)
+
+authRouter.post("/logout", logout)
 
 authRouter.post("/send-otp", sendOTP)
 

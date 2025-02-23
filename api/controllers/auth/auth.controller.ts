@@ -4,6 +4,8 @@ import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import OTPs from "../../models/otp/otp.model";
+import { signAccessToken, signRefreshToken } from "../../middlewares/verifyUser";
+import RefreshTokens from "../../models/refreshToken/refreshToken.model";
 
 export enum IRequestStatus {
     Error,
@@ -113,6 +115,41 @@ export const registerNewUser: RequestHandler = async (
     }
 };
 
+//#region refresh token
+
+export const refreshToken: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.cookies?.refreshToken) {
+        return res.status(200).send({
+            code: 401,
+            requestStatus: IRequestStatus.Error,
+            message: "Error.Token.Expired",
+        });
+    }
+    const token = await RefreshTokens.findOne({ token: req.cookies?.refreshToken });
+    if (!token) {
+        return res.status(200).send({
+            code: 401,
+            requestStatus: IRequestStatus.Error,
+            message: "Error.Token.Expired",
+        });
+    }
+    let tempUser: IUserInfo | undefined = undefined
+    await jwt.verify(req.cookies?.refreshToken, process.env.JWT_REFRESH!, (err: any, user: any) => {
+        if (err) {
+            return res.status(200).send({
+                code: 401,
+                requestStatus: IRequestStatus.Error,
+                message: "Error.Token.Expired",
+            });
+        }
+        tempUser = user;
+    });
+    const accessToken = await signAccessToken(tempUser!._id as string, tempUser!.displayName)
+    return res.status(200).send({
+        accessToken
+    })
+}
+
 //#region login user
 
 export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserData, "email" | "password">>, res: Response, next: NextFunction) => {
@@ -156,9 +193,9 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         }
     }
 
-    const validUser = await Users.findOne({ email }).lean();
+    const validUser = await Users.findOne({ email })
     if (!validUser) {
-        return res.status(200).send({
+        return res.status(400).send({
             requestStatus: IRequestStatus.Error,
             fieldError: "email",
             message: "Error.User.Not.Found",
@@ -182,13 +219,21 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
         });
     }
 
-    if (!process.env.JWT_SECRET) {
-        throw new Error("Token cannot be defined");
-    }
-
     try {
-        const accessToken = jwt.sign({ id: validUser?._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-        const { password, ...rest } = validUser!;
+        const accessToken = await signAccessToken(validUser?._id as string, validUser?.displayName)
+        const refreshToken = await signRefreshToken(validUser?._id as string, validUser?.displayName)
+        const newRefreshToken = new RefreshTokens({
+            token: refreshToken,
+            userId: validUser?._id as string
+        })
+        await newRefreshToken.save()
+        const { password, ...rest } = validUser.toObject();
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 1000 * 60 * 60 * 24
+        })
         return res.status(201).send({
             requestStatus: IRequestStatus.Success,
             message: "Successful.SignIn.User",
@@ -210,10 +255,7 @@ export const userLogin: RequestHandler = async (req: Request<{}, {}, Pick<IUserD
 export const googleAuth: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
     const { email, displayName, avatar } = req.body;
     try {
-        const user = await Users.findOne({ email }).lean();
-        if (!process.env.JWT_SECRET) {
-            throw new Error("Token cannot be defined");
-        }
+        const user = await Users.findOne({ email });
         if (user) {
             if (user.status === userStatus.inactive) {
                 return res.status(401).send({
@@ -222,8 +264,20 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
                     message: "Error.Account.Locked",
                 });
             }
-            const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-            const { password, ...rest } = user;
+            const accessToken = await signAccessToken(user?._id as string, user?.displayName)
+            const refreshToken = await signRefreshToken(user?._id as string, user?.displayName)
+            const newRefreshToken = new RefreshTokens({
+                token: refreshToken,
+                userId: user?._id as string
+            })
+            await newRefreshToken.save()
+            const { password, ...rest } = user!.toObject();
+            res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "none",
+                maxAge: 1000 * 60 * 60 * 24
+            })
             return res.status(200).send({
                 requestStatus: IRequestStatus.Success,
                 message: "Successful.SignIn.User",
@@ -242,9 +296,21 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
                 avatar: avatar,
             });
             await newUser.save();
-            const currentUser = await Users.findById((newUser._id as any).toString()).lean();
-            const accessToken = jwt.sign({ id: currentUser?._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-            const { password, ...rest } = currentUser!;
+            const currentUser = await Users.findById((newUser._id as any).toString());
+            const accessToken = await signAccessToken(currentUser?._id as string, currentUser!.displayName)
+            const refreshToken = await signRefreshToken(currentUser?._id as string, currentUser!.displayName)
+            const newRefreshToken = new RefreshTokens({
+                token: refreshToken,
+                userId: currentUser?._id as string
+            })
+            await newRefreshToken.save()
+            const { password, ...rest } = currentUser!.toObject();
+            res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "none",
+                maxAge: 1000 * 60 * 60 * 24
+            })
             return res.status(201).send({
                 requestStatus: IRequestStatus.Success,
                 message: "Successful.SignIn.User",
@@ -255,12 +321,22 @@ export const googleAuth: RequestHandler = async (req: Request, res: Response, ne
             });
         }
     } catch (error) {
+        console.log(error)
         return res.status(500).send({
-            success: IRequestStatus.Error,
+            requestStatus: IRequestStatus.Error,
             message: "Error.Google",
         });
     }
 };
+
+//#region logout user
+
+export const logout: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.body;
+    res.clearCookie("refreshToken")
+    await RefreshTokens.findOneAndDelete({ token: req.cookies?.refreshToken, userId });
+    return res.json({})
+}
 
 //#region send otp
 
